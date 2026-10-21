@@ -19,7 +19,23 @@
 | Auditoría de operaciones sensibles | ✅ V2.0 |
 | Despliegue Docker + PostgreSQL | ✅ V2.0 |
 | Tests automatizados | ✅ 401 |
-| Documentación viva (dominio, arquitectura, specs, despliegue) | ✅ |
+| Documentación viva (dominio, arquitectura, specs, openspec, despliegue) | ✅ |
+
+### 1.1 Estructura documental
+
+| Documento | Contenido | Se actualiza cuando |
+|---|---|---|
+| `docs/dominio.md` | RN-01..RN-50, entidades, flujos y estados (fuente canónica del dominio) | cambia una regla de negocio |
+| `openspec/specs/<capacidad>/spec.md` | Specs vivas por capacidad, con `Ref:` a cada RN y a F1..F5 (12 capacidades) | cambia una RN o un contrato; validar con `openspec validate --specs` |
+| `docs/specs/<version>.md` | Contrato y criterios de aceptación de una entrega | se planifica una entrega |
+| `docs/arquitectura.md` | Capas, ciclo de request, modelo de datos, migraciones y deploy | cambia una capa, el esquema o un contrato HTTP |
+| `docs/despliegue.md` | Docker, PostgreSQL, variables de entorno y backups | cambia el despliegue |
+| `AGENTS.md` | Stack, reglas duras (1-44) y governance (§7) | cambia una regla del proyecto |
+| `CHANGES.md` | Historial de entregas, suite de tests y deuda técnica | se cierra un cambio |
+
+Precedencia: si `openspec/specs/` y `docs/dominio.md` se contradicen, gana
+`docs/dominio.md` y la spec se corrige. Las specs de `openspec/` son el reflejo
+ejecutable del dominio, no una segunda fuente de verdad.
 
 ## 2. Historial de entregas
 
@@ -102,12 +118,14 @@ Alembic es la única vía para cambiar el esquema real).
 
 ## 6. Cómo encarar un cambio nuevo
 
-1. Leer [`docs/dominio.md`](docs/dominio.md) (regla de negocio afectada) y
+1. Leer [`docs/dominio.md`](docs/dominio.md) (regla de negocio afectada), su
+   spec viva en `openspec/specs/<capacidad>/` y
    [`docs/arquitectura.md`](docs/arquitectura.md) (capa donde va el cambio).
 2. Si el cambio toca contratos o dinero, escribir/actualizar la spec en
    `docs/specs/` antes del código.
 3. TDD estricto: test que falla → código mínimo → triangulación → refactor.
 4. Si hay cambio de esquema: migración Alembic nueva, `alembic upgrade head`
    y `alembic check` limpio.
-5. Actualizar esta tabla, la RN en `docs/dominio.md` y la spec correspondiente.
+5. Actualizar esta tabla, la RN en `docs/dominio.md`, su reflejo en
+   `openspec/specs/<capacidad>/spec.md` y la spec de la entrega en `docs/specs/`.
 6. Respetar el nivel de governance de `AGENTS.md` §7 (CRÍTICO/ALTO/MEDIO/BAJO).
