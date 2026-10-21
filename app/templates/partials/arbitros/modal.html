@@ -1,0 +1,102 @@
+{#-
+  Modal de alta de árbitros. Se incluye en la página completa y se devuelve
+  como fragmento cuando la validación falla (con ``data-abrir-modal="true"``).
+-#}
+{% from "componentes/modal.html" import modal %}
+{% call modal("modalAlta", "modalAltaTitulo", "Alta de árbitro", abrir=error is not none) %}
+<form method="post" action="/arbitros"
+      hx-post="/arbitros"
+      hx-target="#listado-arbitros"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find button[type='submit']">
+  <div class="cabm-modal__cuerpo">
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="legajo">Legajo <span class="text-rose-600">*</span></label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+               id="legajo" name="legajo" required maxlength="20"
+               value="{{ form.legajo or '' }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="nombre">Nombre <span class="text-rose-600">*</span></label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+               id="nombre" name="nombre" required maxlength="100"
+               value="{{ form.nombre or '' }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="apellido">Apellido <span class="text-rose-600">*</span></label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+               id="apellido" name="apellido" required maxlength="100"
+               value="{{ form.apellido or '' }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="dni">DNI <span class="text-rose-600">*</span></label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+               id="dni" name="dni" required maxlength="15"
+               inputmode="numeric" value="{{ form.dni or '' }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="categoria">Escalafón</label>
+        <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                id="categoria" name="categoria">
+          <option value="">Sin asignar</option>
+          {% for categoria in categorias %}
+          <option value="{{ categoria.value }}"
+                  {% if form.categoria == categoria.value %}selected{% endif %}>
+            {{ categoria_etiquetas.get(categoria.value, categoria.value) }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="estado">Estado</label>
+        <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                id="estado" name="estado">
+          {% for estado in estados %}
+          <option value="{{ estado.value }}"
+                  {% if (form.estado or 'ACTIVO') == estado.value %}selected{% endif %}>
+            {{ estado_etiquetas.get(estado.value, estado.value) }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="email">Email</label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+               id="email" name="email" type="email" maxlength="150"
+               value="{{ form.email or '' }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="telefono">Teléfono</label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+               id="telefono" name="telefono" maxlength="40"
+               value="{{ form.telefono or '' }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="localidad">Localidad</label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+               id="localidad" name="localidad" maxlength="120"
+               value="{{ form.localidad or '' }}">
+      </div>
+      <div class="sm:col-span-2">
+        <label class="flex items-center gap-2 text-sm font-medium text-slate-700" for="tiene_auto">
+          <input class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                 type="checkbox" role="switch" id="tiene_auto" name="tiene_auto"
+                 {% if form.tiene_auto %}checked{% endif %}>
+          Dispone de vehículo propio (auto)
+        </label>
+        <p class="mt-1 text-xs text-slate-500">
+          Se usa al armar las ternas para asignar el viático.
+        </p>
+      </div>
+    </div>
+    <p class="mt-4 text-xs text-slate-500">
+      <span class="text-rose-600">*</span> Datos obligatorios.
+    </p>
+  </div>
+  <div class="cabm-modal__pie">
+    <button type="button" class="inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50" @click="cerrar()">Cancelar</button>
+    <button type="submit" class="inline-flex items-center justify-center gap-1 rounded-md bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700">Guardar árbitro</button>
+  </div>
+</form>
+{% endcall %}

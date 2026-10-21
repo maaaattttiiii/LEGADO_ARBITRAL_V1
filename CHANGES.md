@@ -4,8 +4,8 @@
 > de Bahía Blanca. Resume **qué ya está implementado**, con qué tests se
 > verifica y qué queda pendiente.
 >
-> Última actualización: **2026-10-21** · Versión de producto: **V2.0**
-> Suite: **401 tests verdes** · Migración Alembic head: `d3e4f5a6b7c8`
+> Última actualización: **2026-10-21** · Versión de producto: **V3.0**
+> Suite: **543 tests verdes** · Migración Alembic head: `d3e4f5a6b7c8`
 
 ## 1. Estado actual
 
@@ -18,7 +18,8 @@
 | Seguridad (clave inicial obligatoria, rate limiting) | ✅ V2.0 |
 | Auditoría de operaciones sensibles | ✅ V2.0 |
 | Despliegue Docker + PostgreSQL | ✅ V2.0 |
-| Tests automatizados | ✅ 401 |
+| Tests automatizados | ✅ 543 |
+| Interfaz web (Tailwind + HTMX + Alpine, accesible, sin Bootstrap) | ✅ V3.0 |
 | Documentación viva (dominio, arquitectura, specs, openspec, despliegue) | ✅ |
 
 ### 1.1 Estructura documental
@@ -75,7 +76,39 @@ Especificación detallada de estas cinco tareas:
 [`docs/specs/v2_seguridad_auditoria.md`](docs/specs/v2_seguridad_auditoria.md).
 Reglas de negocio nuevas: **RN-42 a RN-50**.
 
-## 3. Suite de tests vigente (401)
+### V3.0 — Interfaz web: Active Stack y accesibilidad
+
+Change `active-stack-frontend`. Retira Bootstrap 5, migra toda la capa de
+presentación a Tailwind CSS y componentes propios, incorpora HTMX/Alpine con
+mejora progresiva y formaliza los criterios de accesibilidad. **No cambia
+reglas de negocio ni el esquema.**
+
+| # | Entrega | Tests |
+|---|---|---|
+| 1 | Layout base, activos en `/static`, navegación por rol | `test_interfaz_web.py` (12) |
+| 2 | Componentes de íconos, modales nativos y toasts | `test_ui_componentes.py` (18) |
+| 3 | Contrato de fragmentos, login y guardas HX-aware | `test_presentacion.py` (17), `test_htmx_auth.py` (16) |
+| 4 | CRUD con HTMX por regiones | `test_htmx_crud.py` (40) |
+| 5 | Tesorería con swaps OOB | `test_htmx_tesoreria.py` (28) |
+| 6 | Retiro de Bootstrap, preflight, accesibilidad y documentación | `test_accesibilidad_ui.py` (11) |
+
+Especificación de la entrega:
+[`docs/specs/v3_interfaz_web.md`](docs/specs/v3_interfaz_web.md).
+Contrato de accesibilidad: **RNF-UI-1 a RNF-UI-8**.
+
+- **RNF-UI-1**: layout único, activos propios en `/static`, sin Bootstrap.
+- **RNF-UI-2**: navegación por rol y enlace activo con
+  `class="nav-link active"` exacto.
+- **RNF-UI-3**: operación completa sin JavaScript.
+- **RNF-UI-4**: HTMX actualiza solo la región afectada.
+- **RNF-UI-5**: fragmentos mínimos, `Vary: HX-Request`, `HX-Trigger` y
+  `HX-Redirect`.
+- **RNF-UI-6**: modales accesibles con foco contenido y movimiento reducido.
+- **RNF-UI-7**: toasts con rol, duración, apilado y pausa.
+- **RNF-UI-8**: teclado, foco visible, `aria-busy`, íconos y estados no
+  dependientes del color.
+
+## 3. Suite de tests vigente (543)
 
 | Área | Archivo(s) | Tests |
 |---|---|---|
@@ -86,7 +119,8 @@ Reglas de negocio nuevas: **RN-42 a RN-50**.
 | Exportación | `test_exportacion.py` | **14** |
 | Datos iniciales | `test_seed.py` | **47** |
 | Despliegue | `test_deploy.py` | **4** |
-| **Total** | 21 archivos | **401** |
+| Interfaz web y accesibilidad | `test_interfaz_web.py` (12), `test_ui_componentes.py` (18), `test_presentacion.py` (17), `test_htmx_auth.py` (16), `test_htmx_crud.py` (40), `test_htmx_tesoreria.py` (28), `test_accesibilidad_ui.py` (11) | **142** |
+| **Total** | 28 archivos | **543** |
 
 Comando: `& C:\Python314\python.exe -m pytest -q`
 (los tests corren contra SQLite en memoria con `Base.metadata.create_all()`;
@@ -112,6 +146,7 @@ Alembic es la única vía para cambiar el esquema real).
 | Alta | Cierre programado de fin de mes | Hoy es manual (individual o en lote) |
 | Alta | Rate limiting distribuido | El estado vive en memoria de una instancia; mover a Redis/DB |
 | Media | Backups automatizados de PostgreSQL | Procedimiento manual documentado en `docs/despliegue.md` |
+| Media | Build local de Tailwind | Hoy usa Play CDN: peso, FOUC, purge y SRI dependen de la red; migrar a standalone CLI/PostCSS junto con CSP |
 | Media | Observabilidad | Logs estructurados y métricas de login/errores |
 | Baja | Migración a tipos nativos de PostgreSQL | Hoy los enums son `VARCHAR` + `CHECK` portables |
 | Baja | Tests E2E de navegador | La suite actual cubre servicios y rutas vía `httpx` |
@@ -129,3 +164,4 @@ Alembic es la única vía para cambiar el esquema real).
 5. Actualizar esta tabla, la RN en `docs/dominio.md`, su reflejo en
    `openspec/specs/<capacidad>/spec.md` y la spec de la entrega en `docs/specs/`.
 6. Respetar el nivel de governance de `AGENTS.md` §7 (CRÍTICO/ALTO/MEDIO/BAJO).
+

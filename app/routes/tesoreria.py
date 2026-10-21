@@ -18,6 +18,7 @@ from app.models.enums import (
 )
 from app.models.partido import Partido
 from app.models.usuario import Usuario
+from app.presentacion import es_htmx, respuesta_o_fragmento, toast
 from app.services.cierres import (
     CierreInvalido,
     PeriodoCerrado,
@@ -85,8 +86,12 @@ def _periodo_actual() -> str:
     return a_local(datetime.now(timezone.utc)).strftime("%Y-%m")
 
 
-def _render(
-    request: Request,
+_PAGINA = "tesoreria/index.html"
+_PARCIAL_ACTUALIZACION = "partials/tesoreria/actualizacion.html"
+_PARCIAL_AJUSTE = "partials/tesoreria/modal_ajuste.html"
+
+
+def _contexto(
     db: Session,
     *,
     periodo: str = "",
@@ -94,9 +99,8 @@ def _render(
     mensaje: str | None = None,
     aviso: str | None = None,
     form: dict[str, str] | None = None,
-    status_code: int = 200,
     abrir_ajuste: bool = False,
-) -> HTMLResponse:
+) -> dict:
     periodo_normalizado = ""
     try:
         periodo_normalizado = normalizar_periodo(periodo) or ""
@@ -137,39 +141,79 @@ def _render(
 
     cerrados = periodos_cerrados(db)
 
+    return {
+        "seccion": "tesoreria",
+        "cuentas": saldos(db, periodo=periodo_normalizado),
+        "partidos": partidos,
+        "cobros": cobros,
+        "arbitros": arbitros,
+        "periodo": periodo_normalizado,
+        "periodo_exportacion": periodo_normalizado or _periodo_actual(),
+        "periodos_cerrados": cerrados,
+        "reaperturas": auditoria_periodos(db),
+        "periodo_cerrado": bool(
+            periodo_normalizado and periodo_normalizado in cerrados
+        ),
+        "periodo_actual": _periodo_actual(),
+        "concepto_etiquetas": CONCEPTO_ETIQUETAS,
+        "conceptos_ajuste": [
+            (concepto.value, CONCEPTO_ETIQUETAS[concepto.value])
+            for concepto in sorted(
+                CONCEPTOS_MANUALES,
+                key=lambda item: CONCEPTO_ETIQUETAS[item.value],
+            )
+        ],
+        "estado_clases": ESTADO_CLASES,
+        "error": error,
+        "mensaje": mensaje,
+        "aviso": aviso,
+        "form": form or {},
+        "abrir_ajuste": abrir_ajuste,
+    }
+
+
+def _render(
+    request: Request,
+    db: Session,
+    *,
+    status_code: int = 200,
+    **kwargs,
+) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
-        "tesoreria/index.html",
-        {
-            "seccion": "tesoreria",
-            "cuentas": saldos(db, periodo=periodo_normalizado),
-            "partidos": partidos,
-            "cobros": cobros,
-            "arbitros": arbitros,
-            "periodo": periodo_normalizado,
-            "periodo_exportacion": periodo_normalizado or _periodo_actual(),
-            "periodos_cerrados": cerrados,
-            "reaperturas": auditoria_periodos(db),
-            "periodo_cerrado": bool(
-                periodo_normalizado and periodo_normalizado in cerrados
-            ),
-            "periodo_actual": _periodo_actual(),
-            "concepto_etiquetas": CONCEPTO_ETIQUETAS,
-            "conceptos_ajuste": [
-                (concepto.value, CONCEPTO_ETIQUETAS[concepto.value])
-                for concepto in sorted(
-                    CONCEPTOS_MANUALES,
-                    key=lambda item: CONCEPTO_ETIQUETAS[item.value],
-                )
-            ],
-            "estado_clases": ESTADO_CLASES,
-            "error": error,
-            "mensaje": mensaje,
-            "aviso": aviso,
-            "form": form or {},
-            "abrir_ajuste": abrir_ajuste,
-        },
+        _PAGINA,
+        _contexto(db, **kwargs),
         status_code=status_code,
+    )
+
+
+def _fragmento(
+    request: Request,
+    db: Session,
+    *,
+    principal: str,
+    regiones: tuple[str, ...],
+    status_code: int = 200,
+    trigger: str | None = None,
+    headers: dict[str, str] | None = None,
+    **kwargs,
+) -> HTMLResponse:
+    """Renderiza las regiones afectadas por una acción de tesorería.
+
+    Sólo se invoca desde la rama ``HX-Request``; el parcial principal ocupa el
+    swap normal y el resto se marca ``hx-swap-oob`` para refrescar la página.
+    """
+    contexto = _contexto(db, **kwargs)
+    contexto["principal"] = principal
+    contexto["regiones"] = list(regiones)
+    return respuesta_o_fragmento(
+        request,
+        completa=_PAGINA,
+        parcial=_PARCIAL_ACTUALIZACION,
+        contexto=contexto,
+        status_code=status_code,
+        headers=headers,
+        trigger=trigger,
     )
 
 
@@ -232,6 +276,7 @@ def detalle_cuenta(
 @router.post("/tesoreria/liquidar-partido/{partido_id}")
 def liquidar(
     partido_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(requiere_tesorero),
 ):
@@ -246,6 +291,19 @@ def liquidar(
         db.commit()
     except (ErrorLiquidacion, TarifaNoEncontrada, ErrorViatico, PeriodoCerrado) as exc:
         db.rollback()
+        if es_htmx(request):
+            return _fragmento(
+                request,
+                db,
+                principal="partidos",
+                regiones=("partidos", "cuentas"),
+                status_code=400,
+                headers={
+                    "HX-Retarget": "#partidos-a-liquidar",
+                    "HX-Reswap": "outerHTML",
+                },
+                trigger=toast("error", str(exc)),
+            )
         return RedirectResponse(
             "/tesoreria?" + urlencode({"error": str(exc)}), status_code=303
         )
@@ -256,6 +314,14 @@ def liquidar(
         f" y {resultado.viaticos_creados} viático(s)"
         f" · período {resultado.periodo}."
     )
+    if es_htmx(request):
+        return _fragmento(
+            request,
+            db,
+            principal="partidos",
+            regiones=("partidos", "cuentas"),
+            trigger=toast("success", mensaje),
+        )
     return RedirectResponse(
         "/tesoreria?" + urlencode({"ok": mensaje}), status_code=303
     )
@@ -264,6 +330,7 @@ def liquidar(
 @router.post("/tesoreria/cobro/{partido_id}")
 def cobrar(
     partido_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     fecha_cobro: str = Form(""),
     usuario: Usuario = Depends(requiere_tesorero),
@@ -278,6 +345,19 @@ def cobrar(
         db.commit()
     except (CobroInvalido, PeriodoCerrado) as exc:
         db.rollback()
+        if es_htmx(request):
+            return _fragmento(
+                request,
+                db,
+                principal="cobros",
+                regiones=("cobros", "cuentas"),
+                status_code=400,
+                headers={
+                    "HX-Retarget": "#cobros-diferidos",
+                    "HX-Reswap": "outerHTML",
+                },
+                trigger=toast("error", str(exc)),
+            )
         return RedirectResponse(
             "/tesoreria?" + urlencode({"error": str(exc)}), status_code=303
         )
@@ -287,6 +367,14 @@ def cobrar(
         mensaje += (
             f" Mora: se reintegró la retención de "
             f"{resultado.reintegros_creados} designación(es)."
+        )
+    if es_htmx(request):
+        return _fragmento(
+            request,
+            db,
+            principal="cobros",
+            regiones=("cobros", "cuentas"),
+            trigger=toast("success", mensaje),
         )
     return RedirectResponse(
         "/tesoreria?" + urlencode({"ok": mensaje}), status_code=303
@@ -347,11 +435,33 @@ def cerrar(
         db.commit()
     except PeriodoYaCerrado as exc:
         db.rollback()
+        if es_htmx(request):
+            return _fragmento(
+                request,
+                db,
+                principal="cierres",
+                regiones=("cierres",),
+                trigger=toast("info", str(exc)),
+            )
         return _render(
             request, db, aviso=str(exc), periodo=periodo
         )
     except CierreInvalido as exc:
         db.rollback()
+        if es_htmx(request):
+            return _fragmento(
+                request,
+                db,
+                principal="cierres",
+                regiones=("cierres",),
+                status_code=400,
+                headers={
+                    "HX-Retarget": "#cierres-periodo",
+                    "HX-Reswap": "outerHTML",
+                },
+                trigger=toast("error", str(exc)),
+                periodo=periodo,
+            )
         return _render(
             request, db, error=str(exc), periodo=periodo, status_code=400
         )
@@ -360,6 +470,14 @@ def cerrar(
         f"Período {cierre.periodo} cerrado: ya no admite altas, designaciones, "
         "liquidaciones, cobros ni ajustes."
     )
+    if es_htmx(request):
+        return _fragmento(
+            request,
+            db,
+            principal="cierres",
+            regiones=("cierres", "cuentas", "partidos", "cobros"),
+            trigger=toast("success", mensaje),
+        )
     return RedirectResponse(
         "/tesoreria?" + urlencode({"ok": mensaje}), status_code=303
     )
@@ -379,9 +497,30 @@ def cerrar_lote(
         db.commit()
     except PeriodoYaCerrado as exc:
         db.rollback()
+        if es_htmx(request):
+            return _fragmento(
+                request,
+                db,
+                principal="cierres",
+                regiones=("cierres",),
+                trigger=toast("info", str(exc)),
+            )
         return _render(request, db, aviso=str(exc))
     except CierreInvalido as exc:
         db.rollback()
+        if es_htmx(request):
+            return _fragmento(
+                request,
+                db,
+                principal="cierres",
+                regiones=("cierres",),
+                status_code=400,
+                headers={
+                    "HX-Retarget": "#cierres-periodo",
+                    "HX-Reswap": "outerHTML",
+                },
+                trigger=toast("error", str(exc)),
+            )
         return _render(request, db, error=str(exc), status_code=400)
 
     detalle = ", ".join(cierre.periodo for cierre in cierres)
@@ -389,6 +528,14 @@ def cerrar_lote(
         f"{len(cierres)} período(s) cerrado(s): {detalle}. "
         "Ya no admiten altas, liquidaciones, cobros ni ajustes."
     )
+    if es_htmx(request):
+        return _fragmento(
+            request,
+            db,
+            principal="cierres",
+            regiones=("cierres", "cuentas", "partidos", "cobros"),
+            trigger=toast("success", mensaje),
+        )
     return RedirectResponse(
         "/tesoreria?" + urlencode({"ok": mensaje}), status_code=303
     )
@@ -409,12 +556,33 @@ def reabrir(
         db.commit()
     except (ReaperturaInvalida, PeriodoNoCerrado) as exc:
         db.rollback()
+        if es_htmx(request):
+            return _fragmento(
+                request,
+                db,
+                principal="cierres",
+                regiones=("cierres",),
+                status_code=400,
+                headers={
+                    "HX-Retarget": "#cierres-periodo",
+                    "HX-Reswap": "outerHTML",
+                },
+                trigger=toast("error", str(exc)),
+            )
         return _render(request, db, error=str(exc), status_code=400)
 
     mensaje = (
         f"Período {cierre.periodo} reabierto: vuelve a admitir altas, "
         "liquidaciones, cobros y ajustes. La reapertura quedó auditada."
     )
+    if es_htmx(request):
+        return _fragmento(
+            request,
+            db,
+            principal="cierres",
+            regiones=("cierres", "cuentas", "partidos", "cobros"),
+            trigger=toast("success", mensaje),
+        )
     return RedirectResponse(
         "/tesoreria?" + urlencode({"ok": mensaje}), status_code=303
     )
@@ -454,6 +622,21 @@ def registrar_ajuste(
         db.commit()
     except (AjusteInvalido, PeriodoCerrado) as exc:
         db.rollback()
+        if es_htmx(request):
+            return respuesta_o_fragmento(
+                request,
+                completa=_PAGINA,
+                parcial=_PARCIAL_AJUSTE,
+                contexto=_contexto(
+                    db, error=str(exc), form=form, abrir_ajuste=True
+                ),
+                status_code=400,
+                headers={
+                    "HX-Retarget": "#modalAjuste",
+                    "HX-Reswap": "outerHTML",
+                },
+                trigger=toast("error", str(exc)),
+            )
         return _render(
             request,
             db,
@@ -464,6 +647,14 @@ def registrar_ajuste(
         )
 
     mensaje = "Ajuste registrado en la cuenta corriente."
+    if es_htmx(request):
+        return _fragmento(
+            request,
+            db,
+            principal="cuentas",
+            regiones=("cuentas",),
+            trigger=toast("success", mensaje, cerrar_modal="modalAjuste"),
+        )
     return RedirectResponse(
         "/tesoreria?" + urlencode({"ok": mensaje}), status_code=303
     )

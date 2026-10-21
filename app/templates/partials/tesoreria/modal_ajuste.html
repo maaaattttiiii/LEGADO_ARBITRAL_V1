@@ -1,0 +1,69 @@
+{#-
+  Modal de ajuste manual. Se incluye en la página completa y se devuelve como
+  fragmento cuando la validación falla (con ``data-abrir-modal="true"``).
+-#}
+{% from "componentes/modal.html" import modal %}
+{% call modal("modalAjuste", "modalAjusteTitulo", "Registrar ajuste", abrir=abrir_ajuste) %}
+<form method="post" action="/tesoreria/ajuste"
+      hx-post="/tesoreria/ajuste"
+      hx-target="#cuentas-corrientes"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find button[type='submit']">
+  <div class="cabm-modal__cuerpo">
+    {% if error and abrir_ajuste %}
+    <div class="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">{{ error }}</div>
+    {% endif %}
+    <div class="mb-4">
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="ajuste_arbitro">Árbitro</label>
+      <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="ajuste_arbitro" name="arbitro_id" required>
+        <option value="">Elegí un árbitro…</option>
+        {% for arbitro in arbitros %}
+        <option value="{{ arbitro.id }}" {% if form.get('arbitro_id') == arbitro.id|string %}selected{% endif %}>
+          {{ arbitro.apellido }}, {{ arbitro.nombre }} ({{ arbitro.legajo }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="ajuste_tipo">Tipo</label>
+        <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="ajuste_tipo" name="tipo" required>
+          <option value="CREDITO" {% if form.get('tipo', 'DEBITO') == 'CREDITO' %}selected{% endif %}>Crédito (a favor)</option>
+          <option value="DEBITO" {% if form.get('tipo', 'DEBITO') == 'DEBITO' %}selected{% endif %}>Débito (descuento)</option>
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="ajuste_concepto">Concepto</label>
+        <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="ajuste_concepto" name="concepto" required>
+          {% for valor, etiqueta in conceptos_ajuste %}
+          <option value="{{ valor }}" {% if form.get('concepto') == valor %}selected{% endif %}>{{ etiqueta }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="ajuste_monto">Monto</label>
+        <div class="flex">
+          <span class="inline-flex items-center rounded-l-md border border-r-0 border-slate-300 bg-slate-100 px-3 text-sm text-slate-600">$</span>
+          <input type="number" class="w-full rounded-r-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="ajuste_monto" name="monto"
+                 min="0.01" step="0.01" value="{{ form.get('monto', '') }}" required>
+        </div>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="ajuste_periodo">Período</label>
+        <input type="month" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="ajuste_periodo" name="periodo"
+               value="{{ form.get('periodo') or periodo }}" required>
+      </div>
+    </div>
+    <div class="mt-4">
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="ajuste_descripcion">Descripción</label>
+      <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="ajuste_descripcion" name="descripcion"
+             maxlength="255" placeholder="Ej.: Descuento por equipamiento"
+             value="{{ form.get('descripcion', '') }}">
+    </div>
+  </div>
+  <div class="cabm-modal__pie">
+    <button type="button" class="inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50" @click="cerrar()">Cancelar</button>
+    <button type="submit" class="inline-flex items-center justify-center gap-1 rounded-md bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700">Registrar ajuste</button>
+  </div>
+</form>
+{% endcall %}

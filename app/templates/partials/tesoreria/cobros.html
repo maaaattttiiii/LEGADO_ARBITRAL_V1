@@ -1,0 +1,65 @@
+{#-
+  Cobros de partidos diferidos: única fuente de markup para la página completa
+  y el fragmento HTMX. La región ``#cobros-diferidos`` es el objetivo del swap
+  y, cuando ``oob`` es verdadero, se intercambia fuera de banda.
+-#}
+{% from "componentes/iconos.html" import icono %}
+{% from "componentes/insignia.html" import insignia %}
+<div id="cobros-diferidos"
+     class="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+     {% if oob|default(false) %}hx-swap-oob="true"{% endif %}>
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3">
+    <span class="font-semibold text-slate-800">Cobros de partidos diferidos</span>
+    {{ insignia(cobros|length|string, "secondary") }}
+  </div>
+  {% if cobros %}
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse text-left text-sm">
+      <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+        <tr>
+          <th scope="col" class="px-4 py-2 font-semibold">Fecha y hora</th>
+          <th scope="col" class="px-4 py-2 font-semibold">Partido</th>
+          <th scope="col" class="px-4 py-2 text-right font-semibold">Fecha de cobro municipal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for partido in cobros %}
+        <tr class="hover:bg-slate-50">
+          <td class="border-t border-slate-200 px-4 py-2 align-middle whitespace-nowrap font-monospace">{{ partido.fecha_hora|fecha_local }}</td>
+          <td class="border-t border-slate-200 px-4 py-2 align-middle">
+            <div><strong>{{ partido.equipo_local }}</strong> vs {{ partido.equipo_visitante }}</div>
+            <div class="text-xs text-body-secondary">{{ partido.torneo.nombre }} · {{ partido.cancha.nombre }}</div>
+          </td>
+          <td class="border-t border-slate-200 px-4 py-2 text-right align-middle">
+            {% if partido.periodo in periodos_cerrados %}
+            {{ insignia("Período cerrado", "dark") }}
+            {% else %}
+            <form method="post" action="/tesoreria/cobro/{{ partido.id }}"
+                  hx-post="/tesoreria/cobro/{{ partido.id }}"
+                  hx-target="#cobros-diferidos"
+                  hx-swap="outerHTML"
+                  hx-disabled-elt="find button[type='submit']"
+                  class="flex flex-wrap items-center justify-end gap-2">
+              <input type="date" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" name="fecha_cobro"
+                     aria-label="Fecha de cobro" required style="max-width: 10rem;">
+              <button type="submit" class="inline-flex items-center justify-center gap-1 rounded-md border border-sky-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-sky-700 shadow-sm transition hover:bg-sky-50">
+                {{ icono("banco") }}Registrar
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="border-t border-slate-200 px-4 py-3 text-xs text-body-secondary">
+    Si el municipio pagó después de 90 días, el árbitro cobra el 100%: se omite la
+    retención (o se reintegra si el partido ya estaba liquidado).
+  </div>
+  {% else %}
+  <div class="px-4 py-6 text-body-secondary">
+    No hay cobros de partidos diferidos pendientes.
+  </div>
+  {% endif %}
+</div>

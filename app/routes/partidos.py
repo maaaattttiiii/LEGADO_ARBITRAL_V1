@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models.cancha import Cancha
 from app.models.enums import EstadoPartido, ModalidadPago
 from app.models.torneo import Torneo
+from app.presentacion import es_htmx, respuesta_o_fragmento, toast
 from app.services.partidos import PartidoInvalido, crear_partido, filtrar_partidos
 from app.services.cierres import PeriodoCerrado
 from app.seguridad import requiere_tesorero
@@ -35,17 +36,20 @@ MODALIDAD_ETIQUETAS = {
     ModalidadPago.DIFERIDO.value: "Diferido",
 }
 
+_PAGINA = "partidos/index.html"
+_PARCIAL_LISTADO = "partials/partidos/listado.html"
+_PARCIAL_FORMULARIO = "partials/partidos/modal.html"
+_MODAL = "modalPartido"
 
-def _render(
-    request: Request,
+
+def _contexto(
     db: Session,
     *,
     partidos,
     error: str | None = None,
     form: dict[str, str] | None = None,
     filtros: dict[str, str] | None = None,
-    status_code: int = 200,
-) -> HTMLResponse:
+) -> dict:
     torneos = (
         db.execute(
             select(Torneo).order_by(Torneo.nombre, Torneo.id)
@@ -61,25 +65,40 @@ def _render(
         .all()
     )
 
+    return {
+        "seccion": "partidos",
+        "partidos": partidos,
+        "torneos": torneos,
+        "canchas": canchas,
+        "estado_etiquetas": ESTADO_ETIQUETAS,
+        "estado_clases": ESTADO_CLASES,
+        "modalidad_etiquetas": MODALIDAD_ETIQUETAS,
+        "modalidades": [
+            (modalidad.value, MODALIDAD_ETIQUETAS[modalidad.value])
+            for modalidad in ModalidadPago
+        ],
+        "error": error,
+        "form": form or {},
+        "filtros": filtros or {},
+    }
+
+
+def _render(
+    request: Request,
+    db: Session,
+    *,
+    partidos,
+    error: str | None = None,
+    form: dict[str, str] | None = None,
+    filtros: dict[str, str] | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
-        "partidos/index.html",
-        {
-            "seccion": "partidos",
-            "partidos": partidos,
-            "torneos": torneos,
-            "canchas": canchas,
-            "estado_etiquetas": ESTADO_ETIQUETAS,
-            "estado_clases": ESTADO_CLASES,
-            "modalidad_etiquetas": MODALIDAD_ETIQUETAS,
-            "modalidades": [
-                (modalidad.value, MODALIDAD_ETIQUETAS[modalidad.value])
-                for modalidad in ModalidadPago
-            ],
-            "error": error,
-            "form": form or {},
-            "filtros": filtros or {},
-        },
+        _PAGINA,
+        _contexto(
+            db, partidos=partidos, error=error, form=form, filtros=filtros
+        ),
         status_code=status_code,
     )
 
@@ -143,6 +162,24 @@ def alta_partido(
         db.commit()
     except (PartidoInvalido, PeriodoCerrado) as exc:
         db.rollback()
+        if es_htmx(request):
+            return respuesta_o_fragmento(
+                request,
+                completa=_PAGINA,
+                parcial=_PARCIAL_FORMULARIO,
+                contexto=_contexto(
+                    db,
+                    partidos=filtrar_partidos(db),
+                    error=str(exc),
+                    form=form,
+                ),
+                status_code=400,
+                headers={
+                    "HX-Retarget": f"#{_MODAL}",
+                    "HX-Reswap": "outerHTML",
+                },
+                trigger=toast("error", str(exc)),
+            )
         return _render(
             request,
             db,
@@ -150,6 +187,16 @@ def alta_partido(
             error=str(exc),
             form=form,
             status_code=400,
+        )
+
+    if es_htmx(request):
+        mensaje = "Partido creado correctamente."
+        return respuesta_o_fragmento(
+            request,
+            completa=_PAGINA,
+            parcial=_PARCIAL_LISTADO,
+            contexto=_contexto(db, partidos=filtrar_partidos(db)),
+            trigger=toast("success", mensaje, cerrar_modal=_MODAL),
         )
 
     return RedirectResponse("/partidos", status_code=303)

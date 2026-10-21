@@ -1,0 +1,81 @@
+{#-
+  Modal de alta de vigencias de tarifa. ``data-abrir-modal`` permite la
+  reapertura declarativa cuando el servidor devuelve el formulario con errores.
+-#}
+{% from "componentes/modal.html" import modal %}
+{% call modal("modalTarifa", "modalTarifaLabel", "Nueva vigencia de tarifa", abrir=abrir_alta|default(false)) %}
+<form method="post" action="/tarifas"
+      hx-post="/tarifas"
+      hx-target="#listado-tarifas"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find button[type='submit']">
+  <div class="cabm-modal__cuerpo">
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div class="sm:col-span-2">
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="tarifa_categoria">Categoría de torneo <span class="text-rose-600">*</span></label>
+        <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="tarifa_categoria" name="categoria_torneo_id" required>
+          <option value="">Elegí una categoría…</option>
+          {% for categoria in categorias %}
+          <option value="{{ categoria.id }}"
+                  {% if form.get('categoria_torneo_id') == categoria.id|string %}selected{% endif %}>
+            {{ categoria.nombre }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="tarifa_rol">Rol</label>
+        <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="tarifa_rol" name="rol">
+          <option value="">Cualquier rol de campo</option>
+          {% for rol in roles %}
+          <option value="{{ rol.value }}" {% if form.get('rol') == rol.value %}selected{% endif %}>
+            {{ rol_etiquetas.get(rol.value, rol.value) }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="tarifa_escalafon">Escalafón</label>
+        <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="tarifa_escalafon" name="categoria_arbitro">
+          <option value="">Cualquier escalafón</option>
+          {% for escalafon in escalafones %}
+          <option value="{{ escalafon.value }}"
+                  {% if form.get('categoria_arbitro') == escalafon.value %}selected{% endif %}>
+            {{ escalafon_etiquetas.get(escalafon.value, escalafon.value) }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="tarifa_monto">Monto base <span class="text-rose-600">*</span></label>
+        <div class="flex">
+          <span class="inline-flex items-center rounded-l-md border border-r-0 border-slate-300 bg-slate-100 px-3 text-sm text-slate-600">$</span>
+          <input type="text" class="w-full rounded-r-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="tarifa_monto" name="monto_base"
+                 inputmode="decimal" value="{{ form.get('monto_base', '') }}" required>
+        </div>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="tarifa_desde">Vigencia desde <span class="text-rose-600">*</span></label>
+        <input type="date" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="tarifa_desde" name="vigencia_desde"
+               value="{{ form.get('vigencia_desde', '') }}" required>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="tarifa_hasta">Vigencia hasta</label>
+        <input type="date" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="tarifa_hasta" name="vigencia_hasta"
+               value="{{ form.get('vigencia_hasta', '') }}">
+        <p class="mt-1 text-xs text-slate-500">Dejala vacía si la tarifa sigue vigente.</p>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="tarifa_descripcion">Descripción</label>
+        <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="tarifa_descripcion" name="descripcion"
+               maxlength="255" placeholder="Ej.: Aumento paritario marzo"
+               value="{{ form.get('descripcion', '') }}">
+      </div>
+    </div>
+  </div>
+  <div class="cabm-modal__pie">
+    <button type="button" class="inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50" @click="cerrar()">Cancelar</button>
+    <button type="submit" class="inline-flex items-center justify-center gap-1 rounded-md bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700">Registrar vigencia</button>
+  </div>
+</form>
+{% endcall %}

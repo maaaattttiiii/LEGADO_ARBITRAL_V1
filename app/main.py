@@ -1,10 +1,18 @@
+from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.limiter import LimitadorLogin
+from app.presentacion import (
+    es_htmx,
+    redireccion_htmx,
+    respuesta_o_fragmento,
+    toast,
+)
 from app.routes import (
     arbitros,
     auth,
@@ -25,10 +33,13 @@ from app.seguridad import (
     CambioPasswordRequerido,
     NoAutenticado,
 )
-from app.templating import templates
+
 
 app = FastAPI(title="CABM - Colegio de Árbitros", version="0.1.0")
 app.state.limiter = LimitadorLogin()
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 app.add_middleware(
     SessionMiddleware,
@@ -53,27 +64,33 @@ app.include_router(tarifas.router)
 @app.exception_handler(NoAutenticado)
 async def _login_requerido(
     request: Request, exc: NoAutenticado
-) -> RedirectResponse:
+) -> Response:
     destino = request.url.path
     if request.url.query:
         destino = f"{destino}?{request.url.query}"
-    return RedirectResponse(
-        "/login?" + urlencode({"next": destino}), status_code=303
-    )
+    login = "/login?" + urlencode({"next": destino})
+    if es_htmx(request):
+        return redireccion_htmx(login)
+    return RedirectResponse(login, status_code=303)
 
 
 @app.exception_handler(AccesoDenegado)
 async def _prohibido(request: Request, exc: AccesoDenegado) -> HTMLResponse:
-    return templates.TemplateResponse(
+    mensaje = str(exc)
+    return respuesta_o_fragmento(
         request,
-        "403.html",
-        {"seccion": None, "error": str(exc)},
+        completa="403.html",
+        parcial="partials/errors/403_panel.html",
+        contexto={"seccion": None, "error": mensaje},
         status_code=403,
+        trigger=toast("error", mensaje),
     )
 
 
 @app.exception_handler(CambioPasswordRequerido)
 async def _cambio_pendiente(
     request: Request, exc: CambioPasswordRequerido
-) -> RedirectResponse:
+) -> Response:
+    if es_htmx(request):
+        return redireccion_htmx("/cambiar-password")
     return RedirectResponse("/cambiar-password", status_code=303)

@@ -1,0 +1,54 @@
+{#-
+  Modal de edición de un torneo. Se incluye una vez por fila del listado y
+  también se renderiza solo cuando la validación falla (reapertura declarativa
+  con ``editar_error_id``).
+-#}
+{% from "componentes/modal.html" import modal %}
+{% set abrir_editar = (editar_error_id|default(none)) == torneo.id %}
+{% call modal("modalEditar" ~ torneo.id, "modalEditarLabel" ~ torneo.id, "Editar " ~ torneo.nombre, abrir=abrir_editar) %}
+<form method="post" action="/torneos/{{ torneo.id }}"
+      hx-post="/torneos/{{ torneo.id }}"
+      hx-target="#listado-torneos"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find button[type='submit']">
+  <div class="cabm-modal__cuerpo">
+    <div class="mb-4">
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="nombre{{ torneo.id }}">Nombre <span class="text-rose-600">*</span></label>
+      <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="nombre{{ torneo.id }}" name="nombre"
+             maxlength="150" value="{{ form.get('nombre', torneo.nombre) }}" required>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div class="sm:col-span-2">
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="categoria{{ torneo.id }}">Categoría <span class="text-rose-600">*</span></label>
+        <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="categoria{{ torneo.id }}" name="categoria_torneo_id" required>
+          {% for categoria in categorias %}
+          <option value="{{ categoria.id }}"
+                  {% if form.get('categoria_torneo_id', torneo.categoria_torneo_id|string) == categoria.id|string %}selected{% endif %}>
+            {{ categoria.nombre }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="temporada{{ torneo.id }}">Temporada</label>
+        <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="temporada{{ torneo.id }}" name="temporada"
+               maxlength="20" value="{{ form.get('temporada', torneo.temporada or '') }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="inicio{{ torneo.id }}">Inicio</label>
+        <input type="date" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="inicio{{ torneo.id }}" name="fecha_inicio"
+               value="{{ form.get('fecha_inicio', torneo.fecha_inicio.isoformat() if torneo.fecha_inicio else '') }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="fin{{ torneo.id }}">Fin</label>
+        <input type="date" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="fin{{ torneo.id }}" name="fecha_fin"
+               value="{{ form.get('fecha_fin', torneo.fecha_fin.isoformat() if torneo.fecha_fin else '') }}">
+      </div>
+    </div>
+  </div>
+  <div class="cabm-modal__pie">
+    <button type="button" class="inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50" @click="cerrar()">Cancelar</button>
+    <button type="submit" class="inline-flex items-center justify-center gap-1 rounded-md bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700">Guardar cambios</button>
+  </div>
+</form>
+{% endcall %}

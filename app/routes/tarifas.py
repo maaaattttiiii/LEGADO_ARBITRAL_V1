@@ -8,6 +8,7 @@ from app.database import get_db
 from app.models.enums import CategoriaArbitro, RolDesignacion
 from app.models.tarifa import Tarifa
 from app.models.torneo import CategoriaTorneo
+from app.presentacion import es_htmx, respuesta_o_fragmento, toast
 from app.services import validaciones
 from app.services.tarifas import (
     TarifaInvalida,
@@ -34,17 +35,21 @@ ESCALAFON_ETIQUETAS = {
     CategoriaArbitro.UNICA.value: "Única",
 }
 
+_PAGINA = "tarifas/index.html"
+_PARCIAL_LISTADO = "partials/tarifas/listado.html"
+_PARCIAL_FORMULARIO = "partials/tarifas/modal.html"
+_MODAL = "modalTarifa"
+_MENSAJE_ALTA = "Vigencia de tarifa registrada. Las anteriores quedan intactas."
 
-def _render(
-    request: Request,
+
+def _contexto(
     db: Session,
     *,
     error: str | None = None,
     mensaje: str | None = None,
     form: dict[str, str] | None = None,
-    status_code: int = 200,
     abrir_alta: bool = False,
-) -> HTMLResponse:
+) -> dict:
     tarifas = (
         db.execute(
             select(Tarifa)
@@ -67,22 +72,41 @@ def _render(
         .scalars()
         .all()
     )
+    return {
+        "seccion": "tarifas",
+        "tarifas": tarifas,
+        "categorias": categorias,
+        "roles": list(RolDesignacion),
+        "escalafones": list(CategoriaArbitro),
+        "rol_etiquetas": ROL_ETIQUETAS,
+        "escalafon_etiquetas": ESCALAFON_ETIQUETAS,
+        "error": error,
+        "mensaje": mensaje,
+        "form": form or {},
+        "abrir_alta": abrir_alta,
+    }
+
+
+def _render(
+    request: Request,
+    db: Session,
+    *,
+    error: str | None = None,
+    mensaje: str | None = None,
+    form: dict[str, str] | None = None,
+    status_code: int = 200,
+    abrir_alta: bool = False,
+) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
-        "tarifas/index.html",
-        {
-            "seccion": "tarifas",
-            "tarifas": tarifas,
-            "categorias": categorias,
-            "roles": list(RolDesignacion),
-            "escalafones": list(CategoriaArbitro),
-            "rol_etiquetas": ROL_ETIQUETAS,
-            "escalafon_etiquetas": ESCALAFON_ETIQUETAS,
-            "error": error,
-            "mensaje": mensaje,
-            "form": form or {},
-            "abrir_alta": abrir_alta,
-        },
+        _PAGINA,
+        _contexto(
+            db,
+            error=error,
+            mensaje=mensaje,
+            form=form,
+            abrir_alta=abrir_alta,
+        ),
         status_code=status_code,
     )
 
@@ -165,11 +189,32 @@ def alta_tarifa(
         db.commit()
     except (TarifaInvalida, TarifaSolapada) as exc:
         db.rollback()
+        if es_htmx(request):
+            return respuesta_o_fragmento(
+                request,
+                completa=_PAGINA,
+                parcial=_PARCIAL_FORMULARIO,
+                contexto=_contexto(db, error=str(exc), form=form, abrir_alta=True),
+                status_code=400,
+                headers={
+                    "HX-Retarget": f"#{_MODAL}",
+                    "HX-Reswap": "outerHTML",
+                },
+                trigger=toast("error", str(exc)),
+            )
         return _render(
             request, db, error=str(exc), form=form, status_code=400, abrir_alta=True
         )
 
-    mensaje = "Vigencia de tarifa registrada. Las anteriores quedan intactas."
+    if es_htmx(request):
+        return respuesta_o_fragmento(
+            request,
+            completa=_PAGINA,
+            parcial=_PARCIAL_LISTADO,
+            contexto=_contexto(db),
+            trigger=toast("success", _MENSAJE_ALTA, cerrar_modal=_MODAL),
+        )
+
     return RedirectResponse(
-        "/tarifas?" + urlencode({"ok": mensaje}), status_code=303
+        "/tarifas?" + urlencode({"ok": _MENSAJE_ALTA}), status_code=303
     )

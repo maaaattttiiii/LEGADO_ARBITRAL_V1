@@ -1,0 +1,19 @@
+{#-
+  Fragmento de acceso denegado. Se comparte entre la página 403 completa y la
+  respuesta HTMX de las guardas.
+-#}
+{% from "componentes/iconos.html" import icono %}
+<div class="flex justify-center">
+  <div class="w-full max-w-lg">
+    <div class="rounded-xl border border-rose-300 bg-white p-6 text-center shadow-sm">
+      <span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-rose-50">
+        {{ icono("candado", "text-danger") }}
+      </span>
+      <h1 class="mt-3 text-xl font-semibold text-slate-900">Acceso denegado</h1>
+      <p class="text-sm text-body-secondary">{{ error or 'No tenés permiso para ver esta sección.' }}</p>
+      <a href="/login" class="mt-2 inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+        {{ icono("flecha-izquierda") }}Volver
+      </a>
+    </div>
+  </div>
+</div>

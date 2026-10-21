@@ -1,0 +1,42 @@
+{#-
+  Modal de alta de canchas. ``data-abrir-modal`` permite la reapertura
+  declarativa cuando el servidor devuelve el formulario con errores.
+-#}
+{% from "componentes/modal.html" import modal %}
+{% set abrir_alta = abrir_alta|default(false) %}
+{% call modal("modalCancha", "modalCanchaLabel", "Nueva cancha", abrir=abrir_alta) %}
+<form method="post" action="/canchas"
+      hx-post="/canchas"
+      hx-target="#listado-canchas"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find button[type='submit']">
+  <div class="cabm-modal__cuerpo">
+    <div class="mb-4">
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="cancha_nombre">Nombre <span class="text-rose-600">*</span></label>
+      <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="cancha_nombre" name="nombre"
+             maxlength="120" value="{{ form.get('nombre', '') }}" required>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="cancha_localidad">Localidad</label>
+        <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="cancha_localidad" name="localidad"
+               maxlength="120" value="{{ form.get('localidad', '') }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="cancha_litros">Litros de viático</label>
+        <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="cancha_litros" name="litros_viatico"
+               inputmode="decimal" value="{{ form.get('litros_viatico', '') }}">
+      </div>
+    </div>
+    <div class="mt-4">
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="cancha_direccion">Dirección</label>
+      <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="cancha_direccion" name="direccion"
+             maxlength="200" value="{{ form.get('direccion', '') }}">
+    </div>
+  </div>
+  <div class="cabm-modal__pie">
+    <button type="button" class="inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50" @click="cerrar()">Cancelar</button>
+    <button type="submit" class="inline-flex items-center justify-center gap-1 rounded-md bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700">Guardar</button>
+  </div>
+</form>
+{% endcall %}

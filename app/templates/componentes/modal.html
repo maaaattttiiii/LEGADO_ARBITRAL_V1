@@ -1,0 +1,70 @@
+{#-
+  Modal nativo controlado por Alpine.
+
+  Uso:
+    {% from "componentes/modal.html" import modal %}
+    {% call modal("modalAlta", "modalAltaTitulo", "Alta de árbitro", abrir=error) %}
+      ...contenido (formulario, campos y pie) ...
+    {% endcall %}
+
+  El servidor decide si el modal se abre al cargar con ``data-abrir-modal``;
+  no se emite JavaScript imperativo en los templates. El foco vuelve al
+  disparador al cerrar y se respeta ``prefers-reduced-motion`` desde el CSS.
+-#}
+{% from "componentes/iconos.html" import icono %}
+{% macro modal(id, titulo_id, titulo, abrir=false, ancho="lg") -%}
+<dialog id="{{ id }}" class="cabm-modal cabm-modal--{{ ancho }}"
+        role="dialog" aria-modal="true" aria-labelledby="{{ titulo_id }}"
+        data-abrir-modal="{{ 'true' if abrir else 'false' }}"
+        x-data="{
+          disparador: null,
+          init() {
+            if (this.$el.dataset.abrirModal === 'true') this.abrir();
+          },
+          abrir() {
+            this.disparador = document.activeElement;
+            if (this.$el.open) return;
+            if (typeof this.$el.showModal === 'function') {
+              this.$el.showModal();
+            } else {
+              this.$el.setAttribute('open', '');
+            }
+            this.enfocar();
+          },
+          enfocar() {
+            const campo = this.$el.querySelector('[autofocus], input, select, textarea');
+            if (campo) campo.focus();
+          },
+          cerrar() {
+            if (typeof this.$el.close === 'function') {
+              this.$el.close();
+            } else {
+              this.$el.removeAttribute('open');
+              this.devolverFoco();
+            }
+          },
+          devolverFoco() {
+            const disparador = this.disparador;
+            this.disparador = null;
+            if (disparador && typeof disparador.focus === 'function') {
+              disparador.focus();
+            }
+          }
+        }"
+        @cabm:abrir-modal.window="if ($event.detail && $event.detail.id === '{{ id }}') abrir()"
+        @cabm:cerrar-modal.window="if ($event.detail && $event.detail.id === '{{ id }}') cerrar()"
+        @cancel.prevent="cerrar()"
+        @close="devolverFoco()"
+        @click.self="cerrar()">
+  <div class="cabm-modal__contenido">
+    <div class="cabm-modal__cabecera">
+      <h2 class="cabm-modal__titulo" id="{{ titulo_id }}">{{ titulo }}</h2>
+      <button type="button" class="cabm-modal__cerrar" aria-label="Cerrar"
+              @click="cerrar()">
+        {{ icono("cerrar") }}
+      </button>
+    </div>
+    {{ caller() }}
+  </div>
+</dialog>
+{%- endmacro %}

@@ -1,0 +1,28 @@
+{#-
+  Notificaciones accesibles del Active Stack.
+
+  El contenedor es una región viva cortés; los errores se anuncian además
+  por una región asertiva dedicada. Cada notificación pausa su temporizador
+  al recibir el puntero o el foco y lo reanuda al salir.
+-#}
+{% macro toasts() -%}
+<div class="cabm-toasts" aria-live="polite" aria-atomic="false">
+  <div class="cabm-solo-lectores" role="alert" aria-live="assertive"
+       x-text="$store.toasts.anuncioError"></div>
+  <template x-for="toast in $store.toasts.items" :key="toast.id">
+    <div class="cabm-toast" role="status"
+         :class="'cabm-toast--' + toast.tipo"
+         @mouseenter="$store.toasts.pausar(toast.id)"
+         @mouseleave="$store.toasts.reanudar(toast.id)"
+         @focusin="$store.toasts.pausar(toast.id)"
+         @focusout="$store.toasts.reanudar(toast.id)">
+      <p class="cabm-toast__mensaje" x-text="toast.mensaje"></p>
+      <button type="button" class="cabm-toast__cerrar"
+              aria-label="Cerrar notificación"
+              @click="$store.toasts.quitar(toast.id)">
+        <span aria-hidden="true">×</span>
+      </button>
+    </div>
+  </template>
+</div>
+{%- endmacro %}

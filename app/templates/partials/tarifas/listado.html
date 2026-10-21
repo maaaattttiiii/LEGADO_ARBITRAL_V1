@@ -1,0 +1,93 @@
+{#-
+  Listado de tarifas: única fuente de markup para la página completa y el
+  fragmento HTMX. La región ``#listado-tarifas`` es el objetivo del swap.
+-#}
+{% from "componentes/iconos.html" import icono %}
+{% from "componentes/insignia.html" import insignia %}
+<div id="listado-tarifas">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Tarifas</h1>
+      <p class="mt-1 max-w-2xl text-sm text-slate-600">
+        Los aranceles se cargan como <strong>nuevas vigencias</strong>: el historial
+        nunca se edita, así los partidos viejos conservan su monto.
+      </p>
+    </div>
+    <button type="button" class="inline-flex items-center justify-center gap-1 rounded-md bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
+            @click="$store.modales.abrir('modalTarifa')">
+      {{ icono("suma") }}Nueva vigencia
+    </button>
+  </div>
+
+  {% if mensaje %}
+  <div class="mb-4 flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="alert">
+    {{ icono("check") }}
+    <div>{{ mensaje }}</div>
+  </div>
+  {% endif %}
+
+  {% if error %}
+  <div class="mb-4 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">
+    {{ icono("alerta") }}
+    <div>{{ error }}</div>
+  </div>
+  {% endif %}
+
+  <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse text-left text-sm">
+        <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+          <tr>
+            <th scope="col" class="px-4 py-2 font-semibold">Categoría</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Rol</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Escalafón</th>
+            <th scope="col" class="px-4 py-2 text-right font-semibold">Monto</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Vigencia</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Descripción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tarifa in tarifas %}
+          <tr class="hover:bg-slate-50">
+            <td class="border-t border-slate-200 px-4 py-2 align-middle font-semibold">{{ tarifa.categoria.nombre }}</td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle">
+              {% if tarifa.rol %}
+                {{ rol_etiquetas.get(tarifa.rol.value, tarifa.rol.value) }}
+              {% else %}
+                <span class="italic text-body-secondary">Cualquier rol de campo</span>
+              {% endif %}
+            </td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle">
+              {% if tarifa.categoria_arbitro %}
+                {{ escalafon_etiquetas.get(tarifa.categoria_arbitro.value, tarifa.categoria_arbitro.value) }}
+              {% else %}
+                <span class="italic text-body-secondary">Cualquier escalafón</span>
+              {% endif %}
+            </td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle text-right font-monospace">$ {{ tarifa.monto_base|moneda }}</td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle text-xs">
+              {{ tarifa.vigencia_desde.strftime('%d/%m/%Y') }}
+              {% if tarifa.vigencia_hasta %}
+                → {{ tarifa.vigencia_hasta.strftime('%d/%m/%Y') }}
+              {% else %}
+                {{ insignia("vigente", "success", "ml-1") }}
+              {% endif %}
+            </td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle text-xs text-body-secondary">{{ tarifa.descripcion or '—' }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="6" class="px-4 py-6 text-center text-slate-500">
+              No hay tarifas cargadas.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="border-t border-slate-200 px-4 py-3 text-xs text-slate-500">
+      Una tarifa nueva con la misma clave y una fecha posterior reemplaza a la
+      anterior a partir de esa fecha. No se permiten vigencias solapadas.
+    </div>
+  </div>
+</div>

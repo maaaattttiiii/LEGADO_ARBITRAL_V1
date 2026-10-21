@@ -1,0 +1,19 @@
+{#-
+  Fragmento de actualización de tesorería.
+
+  ``principal`` indica el parcial que ocupa el swap normal; el resto de
+  ``regiones`` se renderiza con ``hx-swap-oob="true"`` para refrescar las
+  regiones afectadas por la acción sin recargar la página completa.
+-#}
+{% if 'cuentas' in regiones %}
+{% with oob = (principal != 'cuentas') %}{% include "partials/tesoreria/cuentas.html" %}{% endwith %}
+{% endif %}
+{% if 'partidos' in regiones %}
+{% with oob = (principal != 'partidos') %}{% include "partials/tesoreria/partidos_a_liquidar.html" %}{% endwith %}
+{% endif %}
+{% if 'cobros' in regiones %}
+{% with oob = (principal != 'cobros') %}{% include "partials/tesoreria/cobros.html" %}{% endwith %}
+{% endif %}
+{% if 'cierres' in regiones %}
+{% with oob = (principal != 'cierres') %}{% include "partials/tesoreria/cierres.html" %}{% endwith %}
+{% endif %}

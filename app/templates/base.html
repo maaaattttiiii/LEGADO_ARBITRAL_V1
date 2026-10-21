@@ -1,101 +1,151 @@
+{%- from "componentes/toasts.html" import toasts -%}
+{%- from "componentes/iconos.html" import icono -%}
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}CABM{% endblock %} · Colegio de Árbitros</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cabm: {
+              fondo: "#0f172a",
+              panel: "#1e293b",
+              acento: "#38bdf8",
+              texto: "#f8fafc",
+              tenue: "#cbd5e1",
+            },
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
+  <script src="/static/js/app.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js" defer></script>
+  <noscript>
+    <style>
+      .cabm-nav__panel { display: flex !important; }
+      .cabm-nav__submenu { display: flex !important; }
+    </style>
+  </noscript>
 </head>
-<body class="bg-body-tertiary">
+<body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
   {% set rol = request.session.get('rol') %}
   {% set nombre = request.session.get('nombre') %}
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-      <a class="navbar-brand fw-semibold"
-         href="{% if rol == 'TESORERO' %}/tesoreria{% elif rol == 'ARBITRO' %}/mis-partidos{% else %}/login{% endif %}">
-        <i class="bi bi-flag-fill me-1"></i>CABM
-      </a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-              data-bs-target="#navPrincipal" aria-controls="navPrincipal"
-              aria-expanded="false" aria-label="Menú">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navPrincipal">
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          {% if rol == 'TESORERO' %}
-          <li class="nav-item">
-            <a class="nav-link {% if seccion == 'arbitros' %}active{% endif %}"
-               {% if seccion == 'arbitros' %}aria-current="page"{% endif %}
-               href="/arbitros">Árbitros</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if seccion == 'partidos' %}active{% endif %}"
-               {% if seccion == 'partidos' %}aria-current="page"{% endif %}
-               href="/partidos">Partidos</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if seccion == 'designaciones' %}active{% endif %}"
-               {% if seccion == 'designaciones' %}aria-current="page"{% endif %}
-               href="/designaciones">Designaciones</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if seccion == 'tesoreria' %}active{% endif %}"
-               {% if seccion == 'tesoreria' %}aria-current="page"{% endif %}
-               href="/tesoreria">Panel Tesorero</a>
-          </li>
-          <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle {% if seccion in ('canchas', 'torneos', 'tarifas') %}active{% endif %}"
-               href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Datos</a>
-            <ul class="dropdown-menu">
-              <li>
-                <a class="dropdown-item {% if seccion == 'canchas' %}active{% endif %}"
-                   href="/canchas">Canchas</a>
-              </li>
-              <li>
-                <a class="dropdown-item {% if seccion == 'torneos' %}active{% endif %}"
-                   href="/torneos">Torneos</a>
-              </li>
-              <li>
-                <a class="dropdown-item {% if seccion == 'tarifas' %}active{% endif %}"
-                   href="/tarifas">Tarifas</a>
-              </li>
-            </ul>
-          </li>
-          {% elif rol == 'ARBITRO' %}
-          <li class="nav-item">
-            <a class="nav-link {% if seccion == 'mis-partidos' %}active{% endif %}"
-               {% if seccion == 'mis-partidos' %}aria-current="page"{% endif %}
-               href="/mis-partidos">Mis partidos</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if seccion == 'mi-cuenta' %}active{% endif %}"
-               {% if seccion == 'mi-cuenta' %}aria-current="page"{% endif %}
-               href="/mi-cuenta">Mi cuenta</a>
-          </li>
-          {% endif %}
-        </ul>
+  <header class="cabm-header">
+    <nav class="cabm-nav" aria-label="Navegación principal"
+         x-data="{ abierto: false }"
+         @keydown.escape.window="abierto = false">
+      <div class="cabm-nav__inner">
+        <a class="cabm-brand" href="/">
+          {{ icono("bandera") }}<span>CABM</span>
+        </a>
         {% if rol %}
-        <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
-          <span class="navbar-text small">
-            <i class="bi bi-person-circle me-1"></i>{{ nombre }}
-          </span>
-          <form method="post" action="/logout" class="d-flex">
-            <button class="btn btn-outline-light btn-sm" type="submit">
-              <i class="bi bi-box-arrow-right me-1"></i>Salir
-            </button>
-          </form>
-        </div>
+        <button type="button" class="cabm-nav__toggle"
+                @click="abierto = !abierto"
+                :aria-expanded="abierto ? 'true' : 'false'"
+                aria-controls="nav-principal"
+                aria-label="Abrir menú de navegación">
+          <span class="cabm-nav__toggle-barra" aria-hidden="true"></span>
+          <span class="cabm-nav__toggle-barra" aria-hidden="true"></span>
+          <span class="cabm-nav__toggle-barra" aria-hidden="true"></span>
+        </button>
         {% endif %}
+        <div id="nav-principal" class="cabm-nav__panel"
+             :class="{ 'cabm-nav__panel--abierto': abierto }">
+          <ul class="cabm-nav__links">
+            {% if rol == 'TESORERO' %}
+            <li class="cabm-nav__item">
+              <a class="nav-link{% if seccion == 'arbitros' %} active{% endif %}"
+                 {% if seccion == 'arbitros' %}aria-current="page"{% endif %}
+                 href="/arbitros">Árbitros</a>
+            </li>
+            <li class="cabm-nav__item">
+              <a class="nav-link{% if seccion == 'partidos' %} active{% endif %}"
+                 {% if seccion == 'partidos' %}aria-current="page"{% endif %}
+                 href="/partidos">Partidos</a>
+            </li>
+            <li class="cabm-nav__item">
+              <a class="nav-link{% if seccion == 'designaciones' %} active{% endif %}"
+                 {% if seccion == 'designaciones' %}aria-current="page"{% endif %}
+                 href="/designaciones">Designaciones</a>
+            </li>
+            <li class="cabm-nav__item">
+              <a class="nav-link{% if seccion == 'tesoreria' %} active{% endif %}"
+                 {% if seccion == 'tesoreria' %}aria-current="page"{% endif %}
+                 href="/tesoreria">Panel Tesorero</a>
+            </li>
+            <li class="cabm-nav__item" x-data="{ datos: false }"
+                @keydown.escape.stop="datos = false">
+              <button type="button" class="nav-link"
+                      @click="datos = !datos"
+                      :aria-expanded="datos ? 'true' : 'false'"
+                      aria-controls="submenu-datos">
+                Datos <span aria-hidden="true">▾</span>
+              </button>
+              <ul id="submenu-datos" class="cabm-nav__submenu" x-show="datos" x-cloak>
+                <li>
+                  <a class="nav-link{% if seccion == 'canchas' %} active{% endif %}"
+                     {% if seccion == 'canchas' %}aria-current="page"{% endif %}
+                     href="/canchas">Canchas</a>
+                </li>
+                <li>
+                  <a class="nav-link{% if seccion == 'torneos' %} active{% endif %}"
+                     {% if seccion == 'torneos' %}aria-current="page"{% endif %}
+                     href="/torneos">Torneos</a>
+                </li>
+                <li>
+                  <a class="nav-link{% if seccion == 'tarifas' %} active{% endif %}"
+                     {% if seccion == 'tarifas' %}aria-current="page"{% endif %}
+                     href="/tarifas">Tarifas</a>
+                </li>
+              </ul>
+            </li>
+            {% elif rol == 'ARBITRO' %}
+            <li class="cabm-nav__item">
+              <a class="nav-link{% if seccion == 'mis-partidos' %} active{% endif %}"
+                 {% if seccion == 'mis-partidos' %}aria-current="page"{% endif %}
+                 href="/mis-partidos">Mis partidos</a>
+            </li>
+            <li class="cabm-nav__item">
+              <a class="nav-link{% if seccion == 'mi-cuenta' %} active{% endif %}"
+                 {% if seccion == 'mi-cuenta' %}aria-current="page"{% endif %}
+                 href="/mi-cuenta">Mi cuenta</a>
+            </li>
+            {% endif %}
+          </ul>
+          {% if rol %}
+          <div class="cabm-nav__actions">
+            <span class="cabm-nav__user">
+              {{ icono("persona-circulo") }}{{ nombre }}
+            </span>
+            <form method="post" action="/logout" class="flex">
+              <button class="cabm-boton-salir" type="submit">
+                {{ icono("salida") }}Salir
+              </button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
       </div>
-    </div>
-  </nav>
+    </nav>
+  </header>
 
-  <main class="container py-4">
+  <div id="cabm-estado-htmx" class="cabm-solo-lectores" role="status"
+       aria-live="polite"></div>
+
+  <main class="mx-auto w-full max-w-6xl px-4 py-6">
     {% block contenido %}{% endblock %}
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  {{ toasts() }}
+
   {% block scripts %}{% endblock %}
 </body>
 </html>

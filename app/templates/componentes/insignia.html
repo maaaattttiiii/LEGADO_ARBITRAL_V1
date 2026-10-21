@@ -1,0 +1,22 @@
+{#-
+  Insignia de estado. El texto siempre acompaña al color (RNF-UI-8): ninguna
+  insignia comunica un estado únicamente por su tono.
+
+  Uso:
+    {% from "componentes/insignia.html" import insignia %}
+    {{ insignia("Pendiente", "info") }}
+    {{ insignia("Activa", "success") }}
+-#}
+{% macro insignia(texto, tono="secondary", clase="") -%}
+{%- set tonos = {
+  "success": "bg-emerald-100 text-emerald-800",
+  "secondary": "bg-slate-200 text-slate-700",
+  "primary": "bg-sky-100 text-sky-800",
+  "info": "bg-sky-100 text-sky-800",
+  "warning": "bg-amber-100 text-amber-900",
+  "danger": "bg-rose-100 text-rose-800",
+  "dark": "bg-slate-800 text-white",
+  "light": "border border-slate-300 bg-white text-slate-700",
+} -%}
+<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold {{ tonos.get(tono, tonos['secondary']) }}{% if clase %} {{ clase }}{% endif %}">{{ texto }}</span>
+{%- endmacro %}

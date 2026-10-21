@@ -1,0 +1,79 @@
+{#-
+  Listado de árbitros: única fuente de markup para la página completa y el
+  fragmento HTMX. La región ``#listado-arbitros`` es el objetivo del swap.
+-#}
+{% from "componentes/iconos.html" import icono %}
+{% from "componentes/insignia.html" import insignia %}
+<div id="listado-arbitros">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Padrón de árbitros</h1>
+      <p class="mt-1 text-sm text-slate-600">
+        {{ arbitros|length }} árbitro{{ '' if arbitros|length == 1 else 's' }} registrado{{ '' if arbitros|length == 1 else 's' }}.
+      </p>
+    </div>
+    <button class="inline-flex items-center justify-center gap-1 rounded-md bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
+            type="button"
+            @click="$store.modales.abrir('modalAlta')">
+      {{ icono("persona-mas") }} Nuevo árbitro
+    </button>
+  </div>
+
+  {% if error %}
+  <div class="mb-4 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">
+    {{ icono("alerta") }}
+    <div>{{ error }}</div>
+  </div>
+  {% endif %}
+
+  <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse text-left text-sm">
+        <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+          <tr>
+            <th scope="col" class="px-4 py-2 font-semibold">Legajo</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Nombre</th>
+            <th scope="col" class="px-4 py-2 font-semibold">DNI</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Escalafón</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Estado</th>
+            <th scope="col" class="px-4 py-2 text-center font-semibold">Auto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for arbitro in arbitros %}
+          <tr class="hover:bg-slate-50">
+            <td class="border-t border-slate-200 px-4 py-2 align-middle font-monospace">{{ arbitro.legajo }}</td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle">{{ arbitro.apellido }}, {{ arbitro.nombre }}</td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle font-monospace">{{ arbitro.dni }}</td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle">
+              {% if arbitro.categoria %}
+                {{ insignia(categoria_etiquetas.get(arbitro.categoria.value, arbitro.categoria.value), "light") }}
+              {% else %}
+                <span class="text-body-secondary">—</span>
+              {% endif %}
+            </td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle">
+              {{ insignia(estado_etiquetas.get(arbitro.estado.value, arbitro.estado.value), estado_clases.get(arbitro.estado.value, 'secondary')) }}
+            </td>
+            <td class="border-t border-slate-200 px-4 py-2 text-center align-middle">
+              {% if arbitro.tiene_auto %}
+                <span data-auto="si" title="Usa vehículo propio">
+                  {{ insignia("Auto", "info") }}
+                </span>
+              {% else %}
+                <span class="text-body-secondary">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="6" class="px-4 py-6 text-center text-slate-500">
+              No hay árbitros registrados todavía.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

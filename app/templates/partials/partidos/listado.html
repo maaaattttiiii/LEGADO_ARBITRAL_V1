@@ -1,0 +1,122 @@
+{#-
+  Listado de partidos con filtros: única fuente de markup para la página
+  completa y el fragmento HTMX. La región ``#listado-partidos`` es el objetivo
+  del swap.
+-#}
+{% from "componentes/iconos.html" import icono %}
+{% from "componentes/insignia.html" import insignia %}
+<div id="listado-partidos">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Partidos</h1>
+      <p class="mt-1 text-sm text-slate-600">
+        {{ partidos|length }} partido{{ '' if partidos|length == 1 else 's' }} en la lista.
+      </p>
+    </div>
+    <button class="inline-flex items-center justify-center gap-1 rounded-md bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+            type="button"
+            @click="$store.modales.abrir('modalPartido')"
+            {% if not torneos or not canchas %}disabled title="Cargá al menos un torneo y una cancha"{% endif %}>
+      {{ icono("calendario-mas") }} Nuevo partido
+    </button>
+  </div>
+
+  {% if error %}
+  <div class="mb-4 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">
+    {{ icono("alerta") }}
+    <div>{{ error }}</div>
+  </div>
+  {% endif %}
+
+  {% if not torneos or not canchas %}
+  <div class="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="alert">
+    {{ icono("informacion") }}
+    <div>
+      Para dar de alta partidos necesitás al menos un <strong>torneo</strong> y una <strong>cancha</strong> cargados.
+    </div>
+  </div>
+  {% endif %}
+
+  <form class="mb-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm" method="get" action="/partidos">
+    <div class="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="lg:col-span-1">
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="filtro-torneo">Torneo</label>
+        <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="filtro-torneo" name="torneo_id">
+          <option value="">Todos</option>
+          {% for torneo in torneos %}
+          <option value="{{ torneo.id }}"
+                  {% if filtros.torneo_id == torneo.id|string %}selected{% endif %}>
+            {{ torneo.nombre }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="filtro-desde">Desde</label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" type="date" id="filtro-desde" name="desde"
+               value="{{ filtros.desde or '' }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="filtro-hasta">Hasta</label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" type="date" id="filtro-hasta" name="hasta"
+               value="{{ filtros.hasta or '' }}">
+      </div>
+      <div class="flex gap-2">
+        <button class="inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-sky-300 bg-white px-3 py-2 text-sm font-semibold text-sky-700 shadow-sm transition hover:bg-sky-50" type="submit">
+          {{ icono("filtro") }} Filtrar
+        </button>
+        <a class="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50" href="/partidos" title="Limpiar filtros">
+          {{ icono("cerrar") }}
+        </a>
+      </div>
+    </div>
+  </form>
+
+  <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse text-left text-sm">
+        <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+          <tr>
+            <th scope="col" class="px-4 py-2 font-semibold">Fecha y hora</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Torneo</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Partido</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Cancha</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for partido in partidos %}
+          <tr class="hover:bg-slate-50">
+            <td class="border-t border-slate-200 px-4 py-2 align-middle whitespace-nowrap font-monospace">{{ partido.fecha_hora|fecha_local }}</td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle">{{ partido.torneo.nombre }}</td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle">
+              <strong>{{ partido.equipo_local }}</strong>
+              <span class="text-body-secondary">vs</span>
+              {{ partido.equipo_visitante }}
+            </td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle">
+              {{ partido.cancha.nombre }}
+              {% if partido.cancha.localidad %}
+              <span class="text-xs text-body-secondary">({{ partido.cancha.localidad }})</span>
+              {% endif %}
+            </td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle">
+              {{ insignia(estado_etiquetas.get(partido.estado.value, partido.estado.value), estado_clases.get(partido.estado.value, 'secondary')) }}
+              {% if partido.modalidad_pago.value == 'DIFERIDO' %}
+                {{ insignia("Diferido", "info", "ml-1") }}
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="px-4 py-6 text-center text-slate-500">
+              No hay partidos para los filtros seleccionados.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+

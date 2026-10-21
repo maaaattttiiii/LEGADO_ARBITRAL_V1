@@ -218,4 +218,5 @@ Orden de lectura antes de tocar código:
 Regla de mantenimiento (regla 44): ningún cambio se considera terminado si la
 RN, las specs (`docs/specs/` y `openspec/specs/`) y `CHANGES.md` no quedaron
 actualizados. Los tests se ejecutan con
-`& C:\Python314\python.exe -m pytest -q` (hoy 401 tests).
+`& C:\Python314\python.exe -m pytest -q` (hoy 543 tests).
+

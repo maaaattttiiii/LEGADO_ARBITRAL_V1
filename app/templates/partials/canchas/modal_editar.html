@@ -1,0 +1,43 @@
+{#-
+  Modal de edición de una cancha. Se incluye una vez por fila del listado y
+  también se renderiza solo cuando la validación falla (reapertura declarativa
+  con ``editar_error_id``).
+-#}
+{% from "componentes/modal.html" import modal %}
+{% set abrir_editar = (editar_error_id|default(none)) == cancha.id %}
+{% call modal("modalEditar" ~ cancha.id, "modalEditarLabel" ~ cancha.id, "Editar " ~ cancha.nombre, abrir=abrir_editar) %}
+<form method="post" action="/canchas/{{ cancha.id }}"
+      hx-post="/canchas/{{ cancha.id }}"
+      hx-target="#listado-canchas"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find button[type='submit']">
+  <div class="cabm-modal__cuerpo">
+    <div class="mb-4">
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="nombre{{ cancha.id }}">Nombre <span class="text-rose-600">*</span></label>
+      <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="nombre{{ cancha.id }}" name="nombre"
+             maxlength="120" value="{{ form.get('nombre', cancha.nombre) }}" required>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="localidad{{ cancha.id }}">Localidad</label>
+        <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="localidad{{ cancha.id }}" name="localidad"
+               maxlength="120" value="{{ form.get('localidad', cancha.localidad or '') }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="litros{{ cancha.id }}">Litros de viático</label>
+        <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="litros{{ cancha.id }}" name="litros_viatico"
+               inputmode="decimal" value="{{ form.get('litros_viatico', cancha.litros_viatico) }}">
+      </div>
+    </div>
+    <div class="mt-4">
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="direccion{{ cancha.id }}">Dirección</label>
+      <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="direccion{{ cancha.id }}" name="direccion"
+             maxlength="200" value="{{ form.get('direccion', cancha.direccion or '') }}">
+    </div>
+  </div>
+  <div class="cabm-modal__pie">
+    <button type="button" class="inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50" @click="cerrar()">Cancelar</button>
+    <button type="submit" class="inline-flex items-center justify-center gap-1 rounded-md bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700">Guardar cambios</button>
+  </div>
+</form>
+{% endcall %}

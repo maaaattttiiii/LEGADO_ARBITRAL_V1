@@ -8,6 +8,12 @@ from app.database import get_db
 from app.limiter import LimitadorLogin
 from app.models.enums import RolUsuario
 from app.models.usuario import Usuario
+from app.presentacion import (
+    es_htmx,
+    redireccion_htmx,
+    respuesta_o_fragmento,
+    toast,
+)
 from app.seguridad import (
     cerrar_sesion,
     destino_seguro,
@@ -16,7 +22,6 @@ from app.seguridad import (
     requiere_usuario,
 )
 from app.services.usuarios import UsuarioInvalido, autenticar, cambiar_password
-from app.templating import templates
 
 router = APIRouter()
 
@@ -46,10 +51,11 @@ def _login(
     status_code: int = 200,
     headers: dict[str, str] | None = None,
 ) -> HTMLResponse:
-    return templates.TemplateResponse(
+    return respuesta_o_fragmento(
         request,
-        "login.html",
-        {
+        completa="login.html",
+        parcial="partials/auth/login_panel.html",
+        contexto={
             "seccion": "login",
             "email": email,
             "next": siguiente,
@@ -57,6 +63,7 @@ def _login(
         },
         status_code=status_code,
         headers=headers,
+        trigger=toast("error", error) if error else None,
     )
 
 
@@ -67,15 +74,17 @@ def _cambio(
     error: str | None = None,
     status_code: int = 200,
 ) -> HTMLResponse:
-    return templates.TemplateResponse(
+    return respuesta_o_fragmento(
         request,
-        "cambiar_password.html",
-        {
+        completa="cambiar_password.html",
+        parcial="partials/auth/cambiar_password_panel.html",
+        contexto={
             "seccion": "cambiar-password",
             "pendiente": usuario.debe_cambiar_password,
             "error": error,
         },
         status_code=status_code,
+        trigger=toast("error", error) if error else None,
     )
 
 
@@ -142,9 +151,12 @@ def ingresar(
 
     iniciar_sesion(request, usuario)
     if usuario.debe_cambiar_password:
-        return RedirectResponse("/cambiar-password", status_code=303)
+        destino = "/cambiar-password"
+    else:
+        destino = destino_seguro(siguiente) or inicio_para_rol(usuario.rol)
 
-    destino = destino_seguro(siguiente) or inicio_para_rol(usuario.rol)
+    if es_htmx(request):
+        return redireccion_htmx(destino)
     return RedirectResponse(destino, status_code=303)
 
 
@@ -180,7 +192,10 @@ def cambiar(
         return _cambio(request, usuario, error=str(exc), status_code=400)
 
     request.session["debe_cambiar_password"] = False
-    return RedirectResponse(inicio_para_rol(usuario.rol), status_code=303)
+    destino = inicio_para_rol(usuario.rol)
+    if es_htmx(request):
+        return redireccion_htmx(destino)
+    return RedirectResponse(destino, status_code=303)
 
 
 @router.post("/logout")

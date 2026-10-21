@@ -3,18 +3,5 @@
 {% block title %}Acceso denegado{% endblock %}
 
 {% block contenido %}
-<div class="row justify-content-center">
-  <div class="col-12 col-md-8 col-lg-6">
-    <div class="card shadow-sm border-danger">
-      <div class="card-body p-4 text-center">
-        <i class="bi bi-shield-lock fs-1 text-danger"></i>
-        <h1 class="h4 mt-3">Acceso denegado</h1>
-        <p class="text-body-secondary">{{ error or 'No tenés permiso para ver esta sección.' }}</p>
-        <a href="/login" class="btn btn-outline-secondary">
-          <i class="bi bi-arrow-left me-1"></i>Volver
-        </a>
-      </div>
-    </div>
-  </div>
-</div>
+{% include "partials/errors/403_panel.html" %}
 {% endblock %}

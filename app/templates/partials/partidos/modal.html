@@ -1,0 +1,88 @@
+{#-
+  Modal de alta de partidos. Se incluye en la página completa y se devuelve
+  como fragmento cuando la validación falla (con ``data-abrir-modal="true"``).
+-#}
+{% from "componentes/modal.html" import modal %}
+{% call modal("modalPartido", "modalPartidoTitulo", "Alta de partido", abrir=error is not none) %}
+<form method="post" action="/partidos"
+      hx-post="/partidos"
+      hx-target="#listado-partidos"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find button[type='submit']">
+  <div class="cabm-modal__cuerpo">
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="torneo_id">Torneo <span class="text-rose-600">*</span></label>
+        <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="torneo_id" name="torneo_id" required>
+          <option value="">Seleccioná un torneo</option>
+          {% for torneo in torneos %}
+          <option value="{{ torneo.id }}"
+                  {% if form.torneo_id == torneo.id|string %}selected{% endif %}>
+            {{ torneo.nombre }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="cancha_id">Cancha <span class="text-rose-600">*</span></label>
+        <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="cancha_id" name="cancha_id" required>
+          <option value="">Seleccioná una cancha</option>
+          {% for cancha in canchas %}
+          <option value="{{ cancha.id }}"
+                  {% if form.cancha_id == cancha.id|string %}selected{% endif %}>
+            {{ cancha.nombre }}{% if cancha.localidad %} — {{ cancha.localidad }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="fecha">Fecha <span class="text-rose-600">*</span></label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" type="date" id="fecha" name="fecha" required
+               value="{{ form.fecha or '' }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="hora">Hora <span class="text-rose-600">*</span></label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" type="time" id="hora" name="hora" required
+               value="{{ form.hora or '' }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="equipo_local">Equipo local <span class="text-rose-600">*</span></label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="equipo_local" name="equipo_local" required
+               maxlength="120" value="{{ form.equipo_local or '' }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="equipo_visitante">Equipo visitante <span class="text-rose-600">*</span></label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="equipo_visitante" name="equipo_visitante" required
+               maxlength="120" value="{{ form.equipo_visitante or '' }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="observaciones">Observaciones</label>
+        <input class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="observaciones" name="observaciones"
+               value="{{ form.observaciones or '' }}">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="modalidad_pago">Modalidad de pago</label>
+        <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="modalidad_pago" name="modalidad_pago">
+          {% for valor, etiqueta in modalidades %}
+          <option value="{{ valor }}"
+                  {% if (form.modalidad_pago or 'EN_CANCHA') == valor %}selected{% endif %}>
+            {{ etiqueta }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="mt-1 text-xs text-slate-500">
+          En cancha: el club paga el 100% y se debita el 10% de retención.
+          Diferido: la asociación cobra y acredita el 90%.
+        </p>
+      </div>
+    </div>
+    <p class="mt-4 text-xs text-slate-500">
+      <span class="text-rose-600">*</span> Datos obligatorios. La hora se interpreta en horario local (ART).
+    </p>
+  </div>
+  <div class="cabm-modal__pie">
+    <button type="button" class="inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50" @click="cerrar()">Cancelar</button>
+    <button type="submit" class="inline-flex items-center justify-center gap-1 rounded-md bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700">Guardar partido</button>
+  </div>
+</form>
+{% endcall %}

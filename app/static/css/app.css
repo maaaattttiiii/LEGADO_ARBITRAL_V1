@@ -1,0 +1,461 @@
+/*
+ * CABM — estilos propios del Active Stack.
+ *
+ * La hoja se carga junto a Tailwind (preflight habilitado desde la Fase 6).
+ * Solo contiene lo que no conviene expresar con utilidades: navegación por
+ * rol, modales nativos, toasts y foco visible. El enlace activo debe seguir
+ * emitiendo exactamente class="nav-link active" (contrato de la suite).
+ */
+
+:root {
+  --cabm-fondo: #0f172a;
+  --cabm-fondo-suave: #1e293b;
+  --cabm-texto: #f8fafc;
+  --cabm-texto-tenue: #cbd5e1;
+  --cabm-acento: #38bdf8;
+  --cabm-borde: rgba(148, 163, 184, 0.25);
+  --cabm-radio: 0.5rem;
+  --cabm-foco: #fbbf24;
+}
+
+[x-cloak] {
+  display: none !important;
+}
+
+/*
+ * Compatibilidad semántica de estados. Los tests históricos esperan estos
+ * nombres y las plantillas los usan junto a texto, nunca como único canal.
+ */
+.text-success {
+  color: #047857;
+}
+
+.text-danger {
+  color: #b91c1c;
+}
+
+.text-body-secondary {
+  color: #475569;
+}
+
+.font-monospace {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+[aria-busy="true"] {
+  cursor: progress;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+a {
+  color: #0369a1;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.cabm-header {
+  background: var(--cabm-fondo);
+  color: var(--cabm-texto);
+}
+
+.cabm-nav__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0.65rem 1rem;
+}
+
+.cabm-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--cabm-texto);
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cabm-brand:hover {
+  color: var(--cabm-acento);
+}
+
+.cabm-nav__toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-left: auto;
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--cabm-borde);
+  border-radius: var(--cabm-radio);
+  cursor: pointer;
+}
+
+.cabm-nav__toggle-barra {
+  display: block;
+  width: 1.25rem;
+  height: 2px;
+  background: var(--cabm-texto);
+  border-radius: 999px;
+}
+
+.cabm-nav__panel {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.cabm-nav__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cabm-nav__item {
+  position: relative;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--cabm-texto-tenue);
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  border-radius: var(--cabm-radio);
+  cursor: pointer;
+}
+
+.nav-link:hover {
+  color: var(--cabm-texto);
+  background: rgba(148, 163, 184, 0.15);
+  text-decoration: none;
+}
+
+.nav-link.active {
+  color: var(--cabm-fondo);
+  background: var(--cabm-acento);
+}
+
+.cabm-nav__submenu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 11rem;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  background: var(--cabm-fondo-suave);
+  border: 1px solid var(--cabm-borde);
+  border-radius: var(--cabm-radio);
+  box-shadow: 0 10px 25px rgba(2, 6, 23, 0.35);
+}
+
+.cabm-nav__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.cabm-nav__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--cabm-texto-tenue);
+  font-size: 0.9rem;
+}
+
+.cabm-boton-salir {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  color: var(--cabm-texto);
+  font-size: 0.9rem;
+  background: transparent;
+  border: 1px solid var(--cabm-borde);
+  border-radius: var(--cabm-radio);
+  cursor: pointer;
+}
+
+.cabm-boton-salir:hover {
+  color: var(--cabm-fondo);
+  background: var(--cabm-acento);
+  border-color: var(--cabm-acento);
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--cabm-foco);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .cabm-nav__toggle {
+    display: inline-flex;
+  }
+
+  .cabm-nav__panel {
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cabm-nav__panel--abierto {
+    display: flex;
+  }
+
+  .cabm-nav__links {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cabm-nav__submenu {
+    position: static;
+    width: 100%;
+    padding-left: 1rem;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .cabm-nav__actions {
+    flex-direction: column;
+    align-items: stretch;
+    margin-left: 0;
+  }
+}
+
+/* --- Modales nativos ---------------------------------------------------- */
+
+.cabm-icono {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  vertical-align: -0.2em;
+}
+
+.cabm-modal {
+  width: min(40rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  margin: auto;
+  padding: 0;
+  color: var(--cabm-texto);
+  background: var(--cabm-fondo-suave);
+  border: 1px solid var(--cabm-borde);
+  border-radius: var(--cabm-radio);
+  box-shadow: 0 25px 60px rgba(2, 6, 23, 0.55);
+}
+
+.cabm-modal--lg {
+  width: min(52rem, calc(100vw - 2rem));
+}
+
+.cabm-modal::backdrop {
+  background: rgba(2, 6, 23, 0.65);
+  backdrop-filter: blur(2px);
+}
+
+.cabm-modal[open] {
+  animation: cabm-modal-entrada 160ms ease-out;
+}
+
+.cabm-modal__contenido {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2rem);
+}
+
+.cabm-modal__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--cabm-borde);
+}
+
+.cabm-modal__titulo {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.cabm-modal__cerrar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  color: var(--cabm-texto-tenue);
+  background: transparent;
+  border: 0;
+  border-radius: var(--cabm-radio);
+  cursor: pointer;
+}
+
+.cabm-modal__cerrar:hover {
+  color: var(--cabm-texto);
+  background: rgba(148, 163, 184, 0.15);
+}
+
+.cabm-modal__cuerpo {
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+.cabm-modal__pie {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--cabm-borde);
+}
+
+@keyframes cabm-modal-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --- Notificaciones (toasts) -------------------------------------------- */
+
+.cabm-toasts {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1080;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(24rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.cabm-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--cabm-texto);
+  background: var(--cabm-fondo-suave);
+  border: 1px solid var(--cabm-borde);
+  border-left: 4px solid var(--cabm-acento);
+  border-radius: var(--cabm-radio);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.4);
+  pointer-events: auto;
+  animation: cabm-toast-entrada 160ms ease-out;
+}
+
+.cabm-toast--error {
+  border-left-color: #f87171;
+}
+
+.cabm-toast--exito {
+  border-left-color: #34d399;
+}
+
+.cabm-toast__mensaje {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.cabm-toast__cerrar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.35rem;
+  color: var(--cabm-texto-tenue);
+  font-size: 1.1rem;
+  line-height: 1;
+  background: transparent;
+  border: 0;
+  border-radius: var(--cabm-radio);
+  cursor: pointer;
+}
+
+.cabm-toast__cerrar:hover {
+  color: var(--cabm-texto);
+  background: rgba(148, 163, 184, 0.15);
+}
+
+.cabm-solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes cabm-toast-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .cabm-modal[open],
+  .cabm-toast {
+    animation: none;
+  }
+}

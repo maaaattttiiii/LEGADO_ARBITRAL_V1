@@ -3,95 +3,95 @@
 {% block title %}Cuenta de {{ arbitro.apellido }}{% endblock %}
 
 {% block contenido %}
+{% from "componentes/iconos.html" import icono %}
+{% from "componentes/insignia.html" import insignia %}
 <div class="mb-3">
-  <a href="/tesoreria{% if periodo %}?periodo={{ periodo }}{% endif %}" class="text-decoration-none small">
-    <i class="bi bi-arrow-left me-1"></i>Volver al panel
+  <a href="/tesoreria{% if periodo %}?periodo={{ periodo }}{% endif %}" class="inline-flex items-center gap-1 text-sm no-underline hover:underline">
+    {{ icono("flecha-izquierda") }}Volver al panel
   </a>
 </div>
 
-<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
   <div>
-    <h1 class="h3 mb-1">{{ arbitro.apellido }}, {{ arbitro.nombre }}</h1>
-    <p class="text-body-secondary mb-0">
+    <h1 class="text-2xl font-semibold text-slate-900">{{ arbitro.apellido }}, {{ arbitro.nombre }}</h1>
+    <p class="mt-1 flex flex-wrap items-center gap-1 text-sm text-slate-600">
       Legajo <span class="font-monospace">{{ arbitro.legajo }}</span>
       · {{ arbitro.categoria.value if arbitro.categoria else 'Sin escalafón' }}
-      {% if arbitro.tiene_auto %}<span class="badge text-bg-light border ms-1">auto</span>{% endif %}
+      {% if arbitro.tiene_auto %}{{ insignia("auto", "light", "ml-1") }}{% endif %}
     </p>
   </div>
-  <div class="text-end">
-    <div class="small text-body-secondary">
+  <div class="text-right">
+    <div class="text-xs text-body-secondary">
       Saldo {% if periodo %}del período {{ periodo }}{% else %}total{% endif %}
     </div>
-    <div class="fs-3 fw-semibold {% if saldo > 0 %}text-success{% elif saldo < 0 %}text-danger{% else %}text-body-secondary{% endif %}">
+    <div class="text-3xl font-semibold {% if saldo > 0 %}text-success{% elif saldo < 0 %}text-danger{% else %}text-body-secondary{% endif %}">
       $ {{ saldo|moneda }}
     </div>
-    <div class="small text-body-secondary">
+    <div class="text-xs text-body-secondary">
       {% if saldo > 0 %}A favor del árbitro{% elif saldo < 0 %}El árbitro debe a la asociación{% else %}Sin saldo{% endif %}
     </div>
   </div>
 </div>
 
 {% if error %}
-<div class="alert alert-danger" role="alert">{{ error }}</div>
+<div class="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">{{ error }}</div>
 {% endif %}
 
-<form method="get" action="/tesoreria/arbitros/{{ arbitro.id }}" class="row g-2 align-items-end mb-4">
-  <div class="col-auto">
-    <label class="form-label small mb-0" for="periodo">Período</label>
-    <input type="month" class="form-control" id="periodo" name="periodo" value="{{ periodo }}">
+<form method="get" action="/tesoreria/arbitros/{{ arbitro.id }}" class="mb-4 flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+  <div>
+    <label class="mb-1 block text-xs font-medium text-slate-700" for="periodo">Período</label>
+    <input type="month" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="periodo" name="periodo" value="{{ periodo }}">
   </div>
-  <div class="col-auto">
-    <button type="submit" class="btn btn-outline-secondary">
-      <i class="bi bi-funnel me-1"></i>Filtrar
+  <div>
+    <button type="submit" class="inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+      {{ icono("filtro") }}Filtrar
     </button>
   </div>
   {% if periodo %}
-  <div class="col-auto">
-    <a href="/tesoreria/arbitros/{{ arbitro.id }}" class="btn btn-link">Ver todo</a>
+  <div>
+    <a href="/tesoreria/arbitros/{{ arbitro.id }}" class="inline-flex items-center justify-center rounded-md px-2 py-2 text-sm font-semibold text-sky-700 underline-offset-2 hover:underline">Ver todo</a>
   </div>
   {% endif %}
 </form>
 
-<div class="card shadow-sm">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <span class="fw-semibold">Movimientos</span>
-    <span class="badge text-bg-secondary">{{ movimientos|length }}</span>
+<div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+  <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+    <span class="font-semibold text-slate-800">Movimientos</span>
+    {{ insignia(movimientos|length|string, "secondary") }}
   </div>
   {% if movimientos %}
-  <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <thead class="table-light">
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse text-left text-sm">
+      <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
         <tr>
-          <th scope="col">Fecha</th>
-          <th scope="col">Período</th>
-          <th scope="col">Concepto</th>
-          <th scope="col">Detalle</th>
-          <th scope="col">Registró</th>
-          <th scope="col" class="text-end">Monto</th>
+          <th scope="col" class="px-4 py-2 font-semibold">Fecha</th>
+          <th scope="col" class="px-4 py-2 font-semibold">Período</th>
+          <th scope="col" class="px-4 py-2 font-semibold">Concepto</th>
+          <th scope="col" class="px-4 py-2 font-semibold">Detalle</th>
+          <th scope="col" class="px-4 py-2 font-semibold">Registró</th>
+          <th scope="col" class="px-4 py-2 text-right font-semibold">Monto</th>
         </tr>
       </thead>
       <tbody>
         {% for movimiento in movimientos %}
         {% set es_credito = movimiento.tipo.value == 'CREDITO' %}
-        <tr>
-          <td class="text-nowrap">{{ movimiento.fecha.strftime('%d/%m/%Y') }}</td>
-          <td class="font-monospace small">{{ movimiento.periodo }}</td>
-          <td>
-            <span class="badge text-bg-{{ 'success' if es_credito else 'danger' }}">
-              {{ concepto_etiquetas.get(movimiento.concepto.value, movimiento.concepto.value) }}
-            </span>
-            <span class="small text-body-secondary ms-1">{{ tipo_etiquetas.get(movimiento.tipo.value, '') }}</span>
+        <tr class="hover:bg-slate-50">
+          <td class="border-t border-slate-200 px-4 py-2 align-middle whitespace-nowrap">{{ movimiento.fecha.strftime('%d/%m/%Y') }}</td>
+          <td class="border-t border-slate-200 px-4 py-2 align-middle font-monospace text-xs">{{ movimiento.periodo }}</td>
+          <td class="border-t border-slate-200 px-4 py-2 align-middle">
+            {{ insignia(concepto_etiquetas.get(movimiento.concepto.value, movimiento.concepto.value), 'success' if es_credito else 'danger') }}
+            <span class="ml-1 text-xs text-body-secondary">{{ tipo_etiquetas.get(movimiento.tipo.value, '') }}</span>
           </td>
-          <td class="small">
+          <td class="border-t border-slate-200 px-4 py-2 align-middle text-xs">
             {{ movimiento.descripcion or '—' }}
             {% if movimiento.designacion_id %}
             <div class="text-body-secondary">Designación #{{ movimiento.designacion_id }}</div>
             {% endif %}
           </td>
-          <td class="small text-body-secondary">
+          <td class="border-t border-slate-200 px-4 py-2 align-middle text-xs text-body-secondary">
             {{ movimiento.usuario.email if movimiento.usuario else '—' }}
           </td>
-          <td class="text-end text-nowrap fw-semibold {% if es_credito %}text-success{% else %}text-danger{% endif %}">
+          <td class="border-t border-slate-200 px-4 py-2 align-middle text-right whitespace-nowrap font-semibold {% if es_credito %}text-success{% else %}text-danger{% endif %}">
             {{ '+' if es_credito else '−' }} $ {{ movimiento.monto|moneda }}
           </td>
         </tr>
@@ -100,7 +100,7 @@
     </table>
   </div>
   {% else %}
-  <div class="card-body text-body-secondary">
+  <div class="px-4 py-6 text-body-secondary">
     No hay movimientos registrados{% if periodo %} en el período {{ periodo }}{% endif %}.
   </div>
   {% endif %}
