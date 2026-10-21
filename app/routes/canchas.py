@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.cancha import Cancha
 from app.services.canchas import CanchaInvalida, actualizar_cancha, cambiar_estado, crear_cancha
+from app.seguridad import requiere_tesorero
 from app.templating import templates
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(requiere_tesorero)])
 
 
 def _render(

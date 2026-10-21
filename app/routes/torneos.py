@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.torneo import CategoriaTorneo, Torneo
 from app.services.torneos import TorneoInvalido, actualizar_torneo, cambiar_estado, crear_torneo
+from app.seguridad import requiere_tesorero
 from app.templating import templates
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(requiere_tesorero)])
 
 
 def _render(

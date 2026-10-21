@@ -6,6 +6,10 @@ from sqlalchemy.pool import StaticPool
 
 import app.database  # noqa: F401  (registra el listener de PRAGMA foreign_keys)
 from app.database import Base, get_db
+from app.models import RolUsuario, Usuario
+from app.seguridad import hash_password
+
+CLAVE_TESORERO = "tesorero-secreto-123"
 
 
 @pytest.fixture()
@@ -26,7 +30,19 @@ def db_session():
 
 
 @pytest.fixture()
-def client(db_session):
+def tesorero(db_session):
+    usuario = Usuario(
+        email="tesorero@cabm.org.ar",
+        password_hash=hash_password(CLAVE_TESORERO),
+        rol=RolUsuario.TESORERO,
+    )
+    db_session.add(usuario)
+    db_session.flush()
+    return usuario
+
+
+@pytest.fixture()
+def client_anonimo(db_session):
     from app.main import app
 
     def _get_db_override():
@@ -38,3 +54,15 @@ def client(db_session):
             yield test_client
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def client(client_anonimo, tesorero):
+    """Cliente autenticado como tesorero (contexto por defecto de la suite)."""
+    respuesta = client_anonimo.post(
+        "/login",
+        data={"email": tesorero.email, "password": CLAVE_TESORERO},
+        follow_redirects=False,
+    )
+    assert respuesta.status_code == 303
+    return client_anonimo

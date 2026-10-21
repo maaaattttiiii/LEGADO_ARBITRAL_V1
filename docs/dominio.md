@@ -109,6 +109,18 @@ Restricciones:
 
 Resolución: `resolver_precio_combustible(session, fecha)` → la vigencia que contiene la fecha, ganando la más reciente. Sin coincidencia → `PrecioCombustibleNoEncontrado`.
 
+### 3.10 `Usuario`
+Credenciales de acceso al sistema (RN-42).
+`id`, `email` (único, normalizado a minúsculas), `password_hash` (scrypt), `rol`, `arbitro_id` (FK opcional), `activo`.
+
+Restricciones:
+- `UNIQUE(email)`.
+- `CHECK(rol IN ('TESORERO', 'ARBITRO'))`.
+- `CHECK(rol <> 'ARBITRO' OR arbitro_id IS NOT NULL)`: todo usuario árbitro está vinculado a un árbitro.
+- `FK(arbitro_id) ON DELETE RESTRICT`; un árbitro tiene a lo sumo un usuario (se valida en `crear_usuario()`).
+
+La contraseña **nunca** se guarda en claro: `scrypt$n$r$p$sal$hash` con sal aleatoria de 16 bytes y comparación en tiempo constante.
+
 ## 4. Reglas de negocio
 
 | ID | Regla |
@@ -154,6 +166,11 @@ Resolución: `resolver_precio_combustible(session, fecha)` → la vigencia que c
 | **RN-39** | **El período contable es la fecha local (ART)**: `partido.periodo` se calcula con `periodo_de(partido.fecha_hora)`. Un partido del 31/10 a las 23:00 ART pertenece a octubre aunque en UTC ya sea 1 de noviembre. Los cierres y los movimientos usan esa misma definición. |
 | **RN-40** | **Correcciones retroactivas**: toda corrección de un mes cerrado se canaliza como movimiento de `AJUSTE` **en el período abierto**. No se reabre el período ni se editan movimientos históricos. |
 | **RN-41** | El cierre **no altera** los movimientos ya registrados: solo impide operaciones nuevas (altas, liquidaciones, cobros o ajustes) con fecha/período dentro del mes cerrado. Consultar y exportar un período cerrado sigue permitido. |
+| **RN-42** | **Usuarios y credenciales**: `email` único (normalizado a minúsculas), `rol` ∈ {`TESORERO`, `ARBITRO`} y `password_hash` con **scrypt** (sal aleatoria, nunca texto plano). Un usuario `ARBITRO` **debe** estar vinculado a un `arbitro_id`; un `TESORERO` no. `activo=False` impide el acceso. |
+| **RN-43** | **Sesión**: `POST /login` valida email + contraseña y crea una cookie **firmada** (HMAC con `CABM_SECRET_KEY`), **HttpOnly**, `SameSite=Lax`, 8 horas. Solo guarda `usuario_id`, rol, nombre y `arbitro_id`; nunca la contraseña. Email inexistente, clave incorrecta o usuario inactivo → `401` con el mismo mensaje (no revela qué emails existen). `POST /logout` limpia la sesión. |
+| **RN-44** | **Guardas por rol**: sin sesión válida → `303` a `/login?next=<ruta>`; con sesión pero rol incorrecto → `403`. Son del **tesorero**: `/arbitros`, `/partidos`, `/designaciones`, `/tesoreria` (incluye exportar y cierre), `/canchas`, `/torneos` y `/tarifas`. Son del **árbitro**: `/mis-partidos` y `/mi-cuenta`. |
+| **RN-45** | **Aislamiento del portal**: `/mis-partidos` y `/mi-cuenta` filtran **siempre** por el `arbitro_id` del usuario autenticado; se ignora cualquier id que venga en la URL o query. Un árbitro no puede ver ni inferir datos de otro. |
+| **RN-46** | **Revocación**: `usuario_actual()` revalida contra la base en cada request. Si el usuario fue desactivado o eliminado, la sesión se limpia y la próxima petición vuelve a pedir login. |
 
 ### 4.1 Flujo de liquidación
 
@@ -229,6 +246,16 @@ Un período inválido no rompe la pantalla: se muestra el error y se listan todo
 5. El panel muestra los cierres, marca el filtro como **Cerrado** y deshabilita los botones de liquidar y registrar cobro de los partidos congelados.
 6. Las correcciones se registran como `AJUSTE` en el período abierto (RN-40). El cierre no borra ni reescribe nada (RN-41).
 
+### 4.6 Autenticación y control de acceso
+
+`GET /login`, `POST /login` (`email`, `password`, `next`) y `POST /logout`:
+
+1. `autenticar()` normaliza el email, verifica el hash scrypt y exige `activo=True`. Ante cualquier falla responde `401` con el mismo mensaje (RN-43).
+2. Éxito → `request.session.clear()` (evita fijación de sesión) y guarda `usuario_id`, `rol`, `nombre` y `arbitro_id`; redirige a `next` **solo si es una ruta interna** (`destino_seguro`, rechaza `//` y URLs absolutas) o al inicio del rol: `/tesoreria` (tesorero) o `/mis-partidos` (árbitro).
+3. `/logout` limpia la sesión y redirige a `/login`.
+4. Las guardas son dependencias FastAPI: `requiere_tesorero` y `requiere_arbitro`. `NoAutenticado` se traduce en `303` al login conservando la ruta pedida; `AccesoDenegado` se traduce en `403`.
+5. El portal del árbitro nunca recibe un `arbitro_id` por parámetro: lo toma del usuario autenticado (RN-45).
+
 ## 5. Estados
 
 ```
@@ -254,6 +281,7 @@ Designacion:  PROPUESTA ──▶ CONFIRMADA ──▶ CUMPLIDA
 | ADR-07 | Saldo calculado, nunca almacenado | Elimina la clase de bug #1 de cuentas corrientes (deriva). |
 | ADR-08 | Tarifas con vigencias (`desde`/`hasta`), no un flag `vigente` | Permite cambiar precios sin reescribir el historial; el solapamiento se valida en el servicio. |
 | ADR-09 | Pre-validación en seco antes de escribir movimientos | Garantiza atomicidad sin depender de rollbacks parciales ni de savepoints. |
+| ADR-10 | Sesión firmada (`SessionMiddleware`) + scrypt de la stdlib | Cookie HttpOnly sin datos sensibles y hashing sin dependencias nuevas (bcrypt/passlib dan problemas con Python 3.14). |
 
 ## 7. Preguntas abiertas
 
@@ -265,6 +293,7 @@ Designacion:  PROPUESTA ──▶ CONFIRMADA ──▶ CUMPLIDA
 6. ~~**Aranceles oficiales**~~ **Resuelto**: 26 aranceles cargados (ver §8).
 7. ~~**Asistentes**~~ **Resuelto**: principal y asistentes cobran según su **escalafón**; la planilla no distingue por rol de campo.
 8. ~~**Retención del 10% "En Cancha"**~~ **Resuelto (RN-30 a RN-34)**: contabilidad uniforme — siempre 100% acreditado + 10% retenido, en ambas modalidades. La mora superior a 90 días se detecta al registrar la fecha de cobro municipal y reintegra lo retenido automáticamente (RN-32).
+9. ~~**Acceso al sistema**~~ **Resuelto (RN-42 a RN-46)**: dos roles (`TESORERO` administra todo, `ARBITRO` solo su portal), sesión firmada HttpOnly y contraseñas con scrypt. Queda como pendiente de producción cambiar las claves iniciales del seed y definir `CABM_SECRET_KEY`.
 
 ## 8. Datos iniciales (planilla oficial CABM — Octubre 2026)
 

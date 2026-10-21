@@ -14,9 +14,10 @@ from app.services.tarifas import (
     TarifaSolapada,
     crear_tarifa,
 )
+from app.seguridad import requiere_tesorero
 from app.templating import templates
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(requiere_tesorero)])
 
 ROL_ETIQUETAS = {
     RolDesignacion.PRINCIPAL.value: "Juez Principal",

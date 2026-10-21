@@ -18,9 +18,10 @@ from app.services.designaciones import (
     admite_cuarto,
     asignar_terna,
 )
+from app.seguridad import requiere_tesorero
 from app.templating import templates
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(requiere_tesorero)])
 
 ESTADOS_PENDIENTES = (
     EstadoPartido.PROGRAMADO,

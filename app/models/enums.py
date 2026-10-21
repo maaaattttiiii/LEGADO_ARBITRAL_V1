@@ -3,6 +3,18 @@ from enum import Enum
 import sqlalchemy as sa
 
 
+class RolUsuario(str, Enum):
+    """Rol de acceso al sistema.
+
+    ``TESORERO`` administra todo el circuito (padrón, partidos, designaciones y
+    tesorería). ``ARBITRO`` solo accede a su portal (``/mis-partidos`` y
+    ``/mi-cuenta``) y debe estar vinculado a un ``Arbitro``.
+    """
+
+    TESORERO = "TESORERO"
+    ARBITRO = "ARBITRO"
+
+
 class EstadoArbitro(str, Enum):
     ACTIVO = "ACTIVO"
     SUSPENDIDO = "SUSPENDIDO"

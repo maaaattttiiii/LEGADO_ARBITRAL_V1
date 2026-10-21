@@ -9,9 +9,10 @@ from app.models.enums import EstadoPartido, ModalidadPago
 from app.models.torneo import Torneo
 from app.services.partidos import PartidoInvalido, crear_partido, filtrar_partidos
 from app.services.cierres import PeriodoCerrado
+from app.seguridad import requiere_tesorero
 from app.templating import templates
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(requiere_tesorero)])
 
 ESTADO_ETIQUETAS = {
     EstadoPartido.PROGRAMADO.value: "Programado",

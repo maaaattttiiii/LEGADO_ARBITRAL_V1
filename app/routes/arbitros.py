@@ -7,9 +7,10 @@ from app.database import get_db
 from app.models.arbitro import Arbitro
 from app.models.enums import CategoriaArbitro, EstadoArbitro
 from app.services.arbitros import ArbitroInvalido, crear_arbitro
+from app.seguridad import requiere_tesorero
 from app.templating import templates
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(requiere_tesorero)])
 
 CATEGORIA_ETIQUETAS = {
     CategoriaArbitro.CAT_A.value: "A",

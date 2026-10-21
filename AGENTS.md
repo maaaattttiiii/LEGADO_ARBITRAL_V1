@@ -20,13 +20,15 @@
 ```
 LegadoArbitral/            # raíz del repositorio
 ├── app/
-│   ├── main.py              # instancia FastAPI + include_router
+│   ├── main.py              # instancia FastAPI + SessionMiddleware + handlers 303/403
 │   ├── templating.py        # Jinja2Templates (rutas absolutas)
+│   ├── seguridad.py         # scrypt, sesión, requiere_tesorero / requiere_arbitro
 │   ├── database.py          # engine, SessionLocal, Base, get_db
 │   ├── models/
 │   │   ├── base.py          # Base + TimestampMixin
 │   │   ├── enums.py         # enums del dominio
 │   │   ├── arbitro.py       # Arbitro
+│   │   ├── usuario.py       # Usuario (email, password_hash, rol, arbitro_id, activo)
 │   │   ├── cancha.py        # Cancha
 │   │   ├── torneo.py        # CategoriaTorneo, Torneo
 │   │   ├── partido.py       # Partido
@@ -47,6 +49,7 @@ LegadoArbitral/            # raíz del repositorio
 │   │   ├── torneos.py       # ABM de torneos (baja lógica)
 │   │   ├── cierres.py       # cerrar_periodo(), validar_abierto(), periodos_cerrados()
 │   │   ├── validaciones.py  # helpers de parseo de formularios
+│   │   ├── usuarios.py      # crear_usuario(), autenticar()
 │   │   └── exportacion.py   # liquidacion_mensual(), liquidacion_csv(), liquidacion_pdf()
 │   ├── formato.py           # formatear_moneda() (formato argentino)
 │   ├── periodos.py          # normalizar_periodo(), periodo_de() (ART)
@@ -58,9 +61,16 @@ LegadoArbitral/            # raíz del repositorio
 │   │   ├── canchas.py       # ABM /canchas
 │   │   ├── torneos.py       # ABM /torneos
 │   │   ├── tarifas.py       # alta de aranceles /tarifas
-│   │       └── tesoreria.py     # panel, detalle, liquidar, ajuste, cobro, exportar, cierre
+│   │   ├── tesoreria.py     # panel, detalle, liquidar, ajuste, cobro, exportar, cierre
+│   │   ├── auth.py          # GET/POST /login, POST /logout
+│   │   └── portal.py        # /mis-partidos y /mi-cuenta (rol ARBITRO)
 │   ├── templates/
-│   │   ├── base.html        # layout + navbar Bootstrap 5
+│   │   ├── base.html        # layout + navbar según rol
+│   │   ├── login.html       # formulario de ingreso
+│   │   ├── 403.html         # acceso denegado
+│   │   ├── portal/
+│   │   │   ├── mis_partidos.html  # designaciones del árbitro
+│   │   │   └── mi_cuenta.html     # movimientos y saldo del árbitro
 │   │   ├── arbitros/
 │   │   │   └── index.html   # listado + modal de alta
 │   │   ├── partidos/
@@ -71,11 +81,13 @@ LegadoArbitral/            # raíz del repositorio
 │   │       ├── index.html   # saldos + partidos a liquidar + modal de ajuste
 │   │       └── arbitro.html # detalle de movimientos de una cuenta
 │   └── seeds/
-│       └── datos_iniciales.py  # planilla oficial (litros, precio, categorías)
+│       ├── datos_iniciales.py  # planilla oficial (litros, precio, categorías)
+│       └── usuarios.py         # tesorero + cuentas de árbitros
 ├── docs/dominio.md          # fuente de verdad del dominio
 ├── tests/
-│   ├── conftest.py
-│   └── test_models.py
+│   ├── conftest.py          # client autenticado como tesorero + client_anonimo
+│   ├── test_auth.py         # login, guardas y aislamiento por usuario
+│   └── ...
 ├── alembic.ini
 ├── alembic/
 │   └── versions/            # migraciones (única vía para cambiar el esquema)
@@ -126,6 +138,11 @@ LegadoArbitral/            # raíz del repositorio
 32. **Período contable = fecha local (ART, RN-39)**: usar `partido.periodo` (`periodo_de()` en `app/periodos.py`), nunca `fecha_hora.date()` (UTC). Un partido del 31/10 23:00 ART es de octubre.
 33. **Cierre de período (RN-38/41)**: `cerrar_periodo()` es único e idempotente (segundo intento → `PeriodoYaCerrado`, sin duplicar). Con el período cerrado, `validar_abierto()` hace fallar `crear_partido()`, `asignar_terna()`, `liquidar_partido()`, `registrar_cobro()` y `crear_ajuste()` con `PeriodoCerrado`. Consultar y exportar sigue permitido; nada se borra ni se reescribe.
 34. **Correcciones retroactivas (RN-40)**: nunca se reabre un período cerrado ni se editan movimientos históricos; la corrección es un `AJUSTE` (o descuento/adelanto/pago/multa) en el período **abierto**.
+35. **Contraseñas**: siempre `hash_password()` (scrypt con sal) de `app/seguridad.py`. **Prohibido** guardar o loguear contraseñas en claro. `Usuario.email` se normaliza a minúsculas y es único; un `ARBITRO` **exige** `arbitro_id` (CHECK `arbitro_requerido`) y un `TESORERO` no lo lleva.
+36. **Sesión (RN-43)**: `SessionMiddleware` con cookie `cabm_session` firmada por `CABM_SECRET_KEY`, `HttpOnly`, `SameSite=Lax`, 8 h. La sesión guarda solo `usuario_id`, `rol`, `nombre` y `arbitro_id`. En producción definir `CABM_SECRET_KEY` y `CABM_HTTPS_ONLY=1`; sin secreto se genera uno efímero por proceso (sirve para dev, invalida sesiones al reiniciar).
+37. **Guardas (RN-44)**: `APIRouter(dependencies=[Depends(requiere_tesorero)])` en arbitros, partidos, designaciones, tesorería, canchas, torneos y tarifas; `Depends(requiere_arbitro)` en el portal. Sin sesión → `NoAutenticado` (303 a `/login?next=`); rol incorrecto → `AccesoDenegado` (403). Nunca resolver permisos a mano en la ruta.
+38. **Aislamiento del portal (RN-45)**: `/mis-partidos` y `/mi-cuenta` filtran por `usuario.arbitro_id`; **jamás** aceptar un `arbitro_id` por query/URL. El login revalida el usuario contra la base en cada request (`usuario_actual()`), así que desactivarlo corta la sesión (RN-46).
+39. **Credenciales iniciales del seed** (desarrollo): `tesorero@cabm.org.ar` / `cabm2026`; cada árbitro sin usuario recibe `<email o legajo>@cabm.org.ar` / `arbitro123`. Cambiarlas antes de producción.
 
 ## 5. Máquinas de estado
 
@@ -145,14 +162,17 @@ LegadoArbitral/            # raíz del repositorio
 & C:\Python314\python.exe -m pytest -q          # suite completa
 & C:\Python314\python.exe -m uvicorn app.main:app --reload
 & C:\Python314\python.exe -m alembic upgrade head
-& C:\Python314\python.exe -m app.seeds.datos_iniciales   # datos oficiales (idempotente)
+& C:\Python314\python.exe -m app.seeds.datos_iniciales   # datos oficiales + usuarios (idempotente)
 ```
+
+Variables de entorno: `DATABASE_URL`, `CABM_SECRET_KEY` (obligatoria en producción) y `CABM_HTTPS_ONLY=1` detrás de HTTPS.
 
 ## 7. Governance
 
 | Dominio | Nivel | Regla |
 |---|---|---|
 | `MovimientoCuentaCorriente`, saldos, liquidaciones | **CRÍTICO** | No escribir lógica sin spec y tests. Revisión humana antes de migrar. |
+| `Usuario`, `seguridad.py`, sesiones y guardas | **CRÍTICO** | No cambiar hashing, cookies ni reglas de acceso sin tests y revisión humana. |
 | `Designacion`, `Partido`, tarifas | **ALTO** | Proponer y confirmar antes de cambiar contratos. |
 | `Arbitro`, `Torneo`, `Cancha` | **MEDIO** | Implementar con checkpoints. |
 | Enums, schemas de lectura, templates | **BAJO** | Autonomía si los tests pasan. |

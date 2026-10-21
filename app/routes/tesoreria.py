@@ -46,10 +46,11 @@ from app.services.tesoreria import (
     saldos,
 )
 from app.services.viaticos import ErrorViatico
+from app.seguridad import requiere_tesorero
 from app.templating import templates
 from app.tiempo import a_local
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(requiere_tesorero)])
 
 CONCEPTO_ETIQUETAS = {
     ConceptoMovimiento.HONORARIO.value: "Honorario",

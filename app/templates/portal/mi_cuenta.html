@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Mi cuenta{% endblock %}
+
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-1">Mi cuenta</h1>
+    <p class="text-body-secondary mb-0">
+      {{ usuario.arbitro.apellido }}, {{ usuario.arbitro.nombre }}
+      · Legajo <span class="font-monospace">{{ usuario.arbitro.legajo }}</span>
+    </p>
+  </div>
+  <div class="text-end">
+    <div class="small text-body-secondary">Saldo total</div>
+    <div class="fs-3 fw-semibold {% if saldo > 0 %}text-success{% elif saldo < 0 %}text-danger{% else %}text-body-secondary{% endif %}">
+      $ {{ saldo|moneda }}
+    </div>
+    <div class="small text-body-secondary">
+      {% if saldo > 0 %}A tu favor{% elif saldo < 0 %}Le debés a la asociación{% else %}Sin saldo{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">Movimientos</span>
+    <span class="badge text-bg-secondary">{{ movimientos|length }}</span>
+  </div>
+  {% if movimientos %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th scope="col">Fecha</th>
+          <th scope="col">Período</th>
+          <th scope="col">Concepto</th>
+          <th scope="col">Detalle</th>
+          <th scope="col" class="text-end">Crédito</th>
+          <th scope="col" class="text-end">Débito</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for movimiento in movimientos %}
+        <tr>
+          <td class="text-nowrap">{{ movimiento.fecha }}</td>
+          <td class="font-monospace">{{ movimiento.periodo }}</td>
+          <td>{{ concepto_etiquetas[movimiento.concepto.value] }}</td>
+          <td class="small text-body-secondary">{{ movimiento.descripcion or '' }}</td>
+          <td class="text-end text-nowrap text-success">
+            {% if movimiento.tipo.value == 'CREDITO' %}$ {{ movimiento.monto|moneda }}{% endif %}
+          </td>
+          <td class="text-end text-nowrap text-danger">
+            {% if movimiento.tipo.value == 'DEBITO' %}$ {{ movimiento.monto|moneda }}{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-center text-body-secondary py-5">
+    <i class="bi bi-wallet2 fs-3 d-block mb-2"></i>
+    Todavía no tenés movimientos en tu cuenta.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

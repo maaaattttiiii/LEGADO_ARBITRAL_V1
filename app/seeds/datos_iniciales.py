@@ -255,9 +255,11 @@ def sembrar_datos_iniciales(session: Session) -> ReporteSeed:
 
 def main() -> None:
     from app.database import SessionLocal
+    from app.seeds.usuarios import sembrar_usuarios
 
     with SessionLocal() as session:
         reporte = sembrar_datos_iniciales(session)
+        usuarios = sembrar_usuarios(session)
         session.commit()
 
     print(
@@ -268,7 +270,18 @@ def main() -> None:
         f"{reporte.tarifas_creadas} tarifas "
         f"({reporte.omitidos} existentes omitidos)."
     )
-    for aviso in reporte.advertencias:
+    print(
+        "Usuarios: "
+        f"tesorero {'creado' if usuarios.tesorero_creado else 'existente'}, "
+        f"{usuarios.arbitros_creados} cuenta(s) de árbitro creada(s) "
+        f"({usuarios.omitidos} existentes omitidas)."
+    )
+    print(
+        "  Acceso tesorero: tesorero@cabm.org.ar / cabm2026. "
+        "Cuentas de árbitro: <email del árbitro> / arbitro123. "
+        "Cambiar las claves antes de producción."
+    )
+    for aviso in reporte.advertencias + usuarios.advertencias:
         print(f"  ADVERTENCIA: {aviso}")
 
 
