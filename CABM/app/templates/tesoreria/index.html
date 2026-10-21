@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block title %}Panel del Tesorero{% endblock %}
+
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">Panel del Tesorero</h1>
+    <p class="text-body-secondary mb-0">
+      Saldos de cuentas corrientes, liquidación de partidos y ajustes manuales.
+    </p>
+  </div>
+  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAjuste">
+    <i class="bi bi-plus-lg me-1"></i>Registrar ajuste
+  </button>
+</div>
+
+{% if mensaje %}
+<div class="alert alert-success d-flex align-items-start gap-2" role="alert">
+  <i class="bi bi-check-circle-fill"></i>
+  <div>{{ mensaje }}</div>
+</div>
+{% endif %}
+
+{% if error %}
+<div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  <div>{{ error }}</div>
+</div>
+{% endif %}
+
+{% if aviso %}
+<div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+  <i class="bi bi-info-circle-fill"></i>
+  <div>{{ aviso }}</div>
+</div>
+{% endif %}
+
+<form method="get" action="/tesoreria" class="row g-2 align-items-end mb-4">
+  <div class="col-auto">
+    <label class="form-label small mb-0" for="periodo">Período</label>
+    <input type="month" class="form-control" id="periodo" name="periodo" value="{{ periodo }}">
+  </div>
+  <div class="col-auto">
+    <button type="submit" class="btn btn-outline-secondary">
+      <i class="bi bi-funnel me-1"></i>Filtrar
+    </button>
+  </div>
+  {% if periodo %}
+  <div class="col-auto">
+    <a href="/tesoreria" class="btn btn-link">Ver todos los períodos</a>
+  </div>
+  {% endif %}
+  <div class="col-auto ms-auto d-flex gap-2">
+    <a class="btn btn-outline-success"
+       href="/tesoreria/exportar?periodo={{ periodo_exportacion }}&formato=csv">
+      <i class="bi bi-filetype-csv me-1"></i>Exportar CSV
+    </a>
+    <a class="btn btn-outline-danger"
+       href="/tesoreria/exportar?periodo={{ periodo_exportacion }}&formato=pdf">
+      <i class="bi bi-filetype-pdf me-1"></i>Exportar PDF
+    </a>
+  </div>
+</form>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span class="fw-semibold">
+      Cuentas corrientes
+      {% if periodo %}<span class="badge text-bg-secondary ms-1">{{ periodo }}</span>{% endif %}
+      {% if periodo_cerrado %}<span class="badge text-bg-dark ms-1">Cerrado</span>{% endif %}
+    </span>
+    <span class="small text-body-secondary">
+      <span class="text-success">Verde</span>: la asociación le debe al árbitro ·
+      <span class="text-danger">Rojo</span>: el árbitro debe a la asociación
+    </span>
+  </div>
+  {% if cuentas %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th scope="col">Árbitro</th>
+          <th scope="col">Legajo</th>
+          <th scope="col" class="text-end">Movs.</th>
+          <th scope="col" class="text-end">Saldo</th>
+          <th scope="col" class="text-end">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cuenta in cuentas %}
+        {% set arbitro = cuenta.arbitro %}
+        {% set detalle_url = '/tesoreria/arbitros/' ~ arbitro.id ~ ('?periodo=' ~ periodo if periodo else '') %}
+        <tr>
+          <td>
+            <a href="{{ detalle_url }}" class="fw-semibold text-decoration-none">
+              {{ arbitro.apellido }}, {{ arbitro.nombre }}
+            </a>
+            {% if arbitro.tiene_auto %}
+            <span class="badge text-bg-light border ms-1" title="Tiene vehículo">auto</span>
+            {% endif %}
+          </td>
+          <td class="font-monospace small">{{ arbitro.legajo }}</td>
+          <td class="text-end text-body-secondary">{{ cuenta.movimientos }}</td>
+          <td class="text-end fw-semibold {% if cuenta.saldo > 0 %}text-success{% elif cuenta.saldo < 0 %}text-danger{% else %}text-body-secondary{% endif %}">
+            $ {{ cuenta.saldo|moneda }}
+          </td>
+          <td class="text-end">
+            <a href="{{ detalle_url }}" class="btn btn-sm btn-outline-secondary">Ver cuenta</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer small text-body-secondary">
+    El saldo no se guarda: se calcula sumando créditos y restando débitos
+    {% if periodo %}del período {{ periodo }}{% endif %}.
+  </div>
+  {% else %}
+  <div class="card-body text-body-secondary">
+    No hay árbitros registrados. Cargá el padrón en <a href="/arbitros">Árbitros</a>.
+  </div>
+  {% endif %}
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span class="fw-semibold">Partidos a liquidar</span>
+    <span class="badge text-bg-secondary">{{ partidos|length }}</span>
+  </div>
+  {% if partidos %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th scope="col">Fecha y hora</th>
+          <th scope="col">Partido</th>
+          <th scope="col">Cancha</th>
+          <th scope="col" class="text-end">Terna</th>
+          <th scope="col" class="text-end">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for partido in partidos %}
+        {% set terna = partido.designaciones | selectattr("estado.value", "ne", "RECHAZADA") | list %}
+        {% set congelado = partido.periodo in periodos_cerrados %}
+        <tr>
+          <td class="text-nowrap font-monospace">{{ partido.fecha_hora|fecha_local }}</td>
+          <td>
+            <div><strong>{{ partido.equipo_local }}</strong> vs {{ partido.equipo_visitante }}</div>
+            <div class="text-body-secondary small">
+              {{ partido.torneo.nombre }}
+              {% if partido.modalidad_pago.value == 'DIFERIDO' %}
+              <span class="badge text-bg-warning ms-1">Diferido</span>
+              {% endif %}
+              {% if congelado %}
+              <span class="badge text-bg-dark ms-1">Período cerrado</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="small">{{ partido.cancha.nombre }}</td>
+          <td class="text-end small">
+            {% if terna %}{{ terna|length }} árbitro{{ '' if terna|length == 1 else 's' }}{% else %}<span class="text-danger">sin terna</span>{% endif %}
+          </td>
+          <td class="text-end">
+            {% if congelado %}
+            <button type="button" class="btn btn-sm btn-outline-dark" disabled
+                    title="El período está cerrado: no admite liquidaciones">
+              <i class="bi bi-lock me-1"></i>Cerrado
+            </button>
+            {% else %}
+            <form method="post" action="/tesoreria/liquidar-partido/{{ partido.id }}" class="d-inline"
+                  onsubmit="return confirm('¿Liquidar este partido? Se generarán los movimientos de honorarios y viáticos.');">
+              <button type="submit" class="btn btn-sm btn-success">
+                <i class="bi bi-cash-coin me-1"></i>Liquidar
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer small text-body-secondary">
+    La liquidación es idempotente: volver a liquidar un partido no duplica honorarios ni viáticos.
+  </div>
+  {% else %}
+  <div class="card-body text-body-secondary">No hay partidos pendientes de liquidación.</div>
+  {% endif %}
+</div>
+
+<div class="card shadow-sm mt-4">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span class="fw-semibold">Cobros de partidos diferidos</span>
+    <span class="badge text-bg-secondary">{{ cobros|length }}</span>
+  </div>
+  {% if cobros %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th scope="col">Fecha y hora</th>
+          <th scope="col">Partido</th>
+          <th scope="col" class="text-end">Fecha de cobro municipal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for partido in cobros %}
+        <tr>
+          <td class="text-nowrap font-monospace">{{ partido.fecha_hora|fecha_local }}</td>
+          <td>
+            <div><strong>{{ partido.equipo_local }}</strong> vs {{ partido.equipo_visitante }}</div>
+            <div class="text-body-secondary small">{{ partido.torneo.nombre }} · {{ partido.cancha.nombre }}</div>
+          </td>
+          <td class="text-end">
+            {% if partido.periodo in periodos_cerrados %}
+            <span class="badge text-bg-dark">Período cerrado</span>
+            {% else %}
+            <form method="post" action="/tesoreria/cobro/{{ partido.id }}"
+                  class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
+              <input type="date" class="form-control form-control-sm" name="fecha_cobro"
+                     aria-label="Fecha de cobro" required style="max-width: 10rem;">
+              <button type="submit" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-bank me-1"></i>Registrar
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer small text-body-secondary">
+    Si el municipio pagó después de 90 días, el árbitro cobra el 100%: se omite la
+    retención (o se reintegra si el partido ya estaba liquidado).
+  </div>
+  {% else %}
+  <div class="card-body text-body-secondary">
+    No hay cobros de partidos diferidos pendientes.
+  </div>
+  {% endif %}
+</div>
+
+<div class="card shadow-sm mt-4">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span class="fw-semibold">Cierres de período</span>
+    <span class="badge text-bg-secondary">{{ periodos_cerrados|length }}</span>
+  </div>
+  <div class="card-body">
+    <p class="small text-body-secondary">
+      Al cerrar un período no se pueden cargar ni modificar partidos, designaciones,
+      liquidaciones, cobros ni ajustes de ese mes. Las correcciones se registran como
+      <strong>ajuste</strong> en el período abierto.
+    </p>
+    {% if periodos_cerrados %}
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      {% for cerrado in periodos_cerrados %}
+      <span class="badge text-bg-dark">Período cerrado · {{ cerrado }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <form method="post" action="/tesoreria/cierre-periodo"
+          class="row g-2 align-items-end"
+          onsubmit="return confirm('¿Cerrar el período? No se podrán cargar ni modificar datos de ese mes.');">
+      <div class="col-auto">
+        <label class="form-label small mb-0" for="cierre_periodo">Período a cerrar</label>
+        <input type="month" class="form-control" id="cierre_periodo" name="periodo"
+               value="{{ periodo or periodo_actual }}" required>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-outline-dark">
+          <i class="bi bi-lock me-1"></i>Cerrar período
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="modalAjuste" tabindex="-1" aria-labelledby="modalAjusteLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form method="post" action="/tesoreria/ajuste" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalAjusteLabel">Registrar ajuste</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        {% if error and abrir_ajuste %}
+        <div class="alert alert-danger py-2 small">{{ error }}</div>
+        {% endif %}
+        <div class="mb-3">
+          <label class="form-label" for="ajuste_arbitro">Árbitro</label>
+          <select class="form-select" id="ajuste_arbitro" name="arbitro_id" required>
+            <option value="">Elegí un árbitro…</option>
+            {% for arbitro in arbitros %}
+            <option value="{{ arbitro.id }}" {% if form.get('arbitro_id') == arbitro.id|string %}selected{% endif %}>
+              {{ arbitro.apellido }}, {{ arbitro.nombre }} ({{ arbitro.legajo }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="ajuste_tipo">Tipo</label>
+            <select class="form-select" id="ajuste_tipo" name="tipo" required>
+              <option value="CREDITO" {% if form.get('tipo', 'DEBITO') == 'CREDITO' %}selected{% endif %}>Crédito (a favor)</option>
+              <option value="DEBITO" {% if form.get('tipo', 'DEBITO') == 'DEBITO' %}selected{% endif %}>Débito (descuento)</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="ajuste_concepto">Concepto</label>
+            <select class="form-select" id="ajuste_concepto" name="concepto" required>
+              {% for valor, etiqueta in conceptos_ajuste %}
+              <option value="{{ valor }}" {% if form.get('concepto') == valor %}selected{% endif %}>{{ etiqueta }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="ajuste_monto">Monto</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input type="number" class="form-control" id="ajuste_monto" name="monto"
+                     min="0.01" step="0.01" value="{{ form.get('monto', '') }}" required>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="ajuste_periodo">Período</label>
+            <input type="month" class="form-control" id="ajuste_periodo" name="periodo"
+                   value="{{ form.get('periodo') or periodo }}" required>
+          </div>
+        </div>
+        <div class="mt-3">
+          <label class="form-label" for="ajuste_descripcion">Descripción</label>
+          <input type="text" class="form-control" id="ajuste_descripcion" name="descripcion"
+                 maxlength="255" placeholder="Ej.: Descuento por equipamiento"
+                 value="{{ form.get('descripcion', '') }}">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar ajuste</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if abrir_ajuste %}
+<script>
+  new bootstrap.Modal(document.getElementById("modalAjuste")).show();
+</script>
+{% endif %}
+{% endblock %}

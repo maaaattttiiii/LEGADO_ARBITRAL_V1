@@ -1,0 +1,23 @@
+# Sistema de Gestión - Colegio de Árbitros (CABM)
+# Versiones verificadas contra el entorno local (Python 3.14.5)
+
+# --- Web ---
+fastapi==0.143.2
+uvicorn[standard]==0.48.0
+jinja2==3.1.6
+python-multipart==0.0.30
+
+# --- Persistencia ---
+sqlalchemy==2.1.4
+alembic==1.20.0
+psycopg[binary]==3.3.6
+
+# --- Configuración ---
+pydantic-settings==2.16.0
+
+# --- Reportes ---
+reportlab==5.0.1
+
+# --- Testing ---
+pytest==9.1.1
+httpx==0.28.1

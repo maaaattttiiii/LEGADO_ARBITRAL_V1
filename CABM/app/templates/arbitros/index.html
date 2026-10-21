@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Árbitros{% endblock %}
+
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">Padrón de árbitros</h1>
+    <p class="text-body-secondary mb-0">
+      {{ arbitros|length }} árbitro{{ '' if arbitros|length == 1 else 's' }} registrado{{ '' if arbitros|length == 1 else 's' }}.
+    </p>
+  </div>
+  <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalAlta">
+    <i class="bi bi-person-plus me-1"></i>Nuevo árbitro
+  </button>
+</div>
+
+{% if error %}
+<div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  <div>{{ error }}</div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th scope="col">Legajo</th>
+          <th scope="col">Nombre</th>
+          <th scope="col">DNI</th>
+          <th scope="col">Escalafón</th>
+          <th scope="col">Estado</th>
+          <th scope="col" class="text-center">Auto</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for arbitro in arbitros %}
+        <tr>
+          <td class="font-monospace">{{ arbitro.legajo }}</td>
+          <td>{{ arbitro.apellido }}, {{ arbitro.nombre }}</td>
+          <td class="font-monospace">{{ arbitro.dni }}</td>
+          <td>
+            {% if arbitro.categoria %}
+              <span class="badge text-bg-light border">
+                {{ categoria_etiquetas.get(arbitro.categoria.value, arbitro.categoria.value) }}
+              </span>
+            {% else %}
+              <span class="text-body-secondary">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge text-bg-{{ estado_clases.get(arbitro.estado.value, 'secondary') }}">
+              {{ estado_etiquetas.get(arbitro.estado.value, arbitro.estado.value) }}
+            </span>
+          </td>
+          <td class="text-center">
+            {% if arbitro.tiene_auto %}
+              <span class="badge text-bg-info" data-auto="si" title="Usa vehículo propio">
+                <i class="bi bi-car-front-fill"></i> Auto
+              </span>
+            {% else %}
+              <span class="text-body-secondary">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center text-body-secondary py-4">
+            No hay árbitros registrados todavía.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal fade" id="modalAlta" tabindex="-1" aria-labelledby="modalAltaTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="/arbitros">
+        <div class="modal-header">
+          <h2 class="modal-title h5" id="modalAltaTitulo">Alta de árbitro</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label" for="legajo">Legajo <span class="text-danger">*</span></label>
+              <input class="form-control" id="legajo" name="legajo" required maxlength="20"
+                     value="{{ form.legajo or '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="nombre">Nombre <span class="text-danger">*</span></label>
+              <input class="form-control" id="nombre" name="nombre" required maxlength="100"
+                     value="{{ form.nombre or '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="apellido">Apellido <span class="text-danger">*</span></label>
+              <input class="form-control" id="apellido" name="apellido" required maxlength="100"
+                     value="{{ form.apellido or '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="dni">DNI <span class="text-danger">*</span></label>
+              <input class="form-control" id="dni" name="dni" required maxlength="15"
+                     inputmode="numeric" value="{{ form.dni or '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="categoria">Escalafón</label>
+              <select class="form-select" id="categoria" name="categoria">
+                <option value="">Sin asignar</option>
+                {% for categoria in categorias %}
+                <option value="{{ categoria.value }}"
+                        {% if form.categoria == categoria.value %}selected{% endif %}>
+                  {{ categoria_etiquetas.get(categoria.value, categoria.value) }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="estado">Estado</label>
+              <select class="form-select" id="estado" name="estado">
+                {% for estado in estados %}
+                <option value="{{ estado.value }}"
+                        {% if (form.estado or 'ACTIVO') == estado.value %}selected{% endif %}>
+                  {{ estado_etiquetas.get(estado.value, estado.value) }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="email">Email</label>
+              <input class="form-control" id="email" name="email" type="email" maxlength="150"
+                     value="{{ form.email or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="telefono">Teléfono</label>
+              <input class="form-control" id="telefono" name="telefono" maxlength="40"
+                     value="{{ form.telefono or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="localidad">Localidad</label>
+              <input class="form-control" id="localidad" name="localidad" maxlength="120"
+                     value="{{ form.localidad or '' }}">
+            </div>
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch"
+                       id="tiene_auto" name="tiene_auto"
+                       {% if form.tiene_auto %}checked{% endif %}>
+                <label class="form-check-label" for="tiene_auto">
+                  Dispone de vehículo propio (auto)
+                </label>
+                <div class="form-text">
+                  Se usa al armar las ternas para asignar el viático.
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="text-body-secondary small mt-3 mb-0">
+            <span class="text-danger">*</span> Datos obligatorios.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar árbitro</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if error %}
+<script>
+  new bootstrap.Modal(document.getElementById('modalAlta')).show();
+</script>
+{% endif %}
+{% endblock %}

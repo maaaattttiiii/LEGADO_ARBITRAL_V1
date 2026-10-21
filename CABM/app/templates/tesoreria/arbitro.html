@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Cuenta de {{ arbitro.apellido }}{% endblock %}
+
+{% block contenido %}
+<div class="mb-3">
+  <a href="/tesoreria{% if periodo %}?periodo={{ periodo }}{% endif %}" class="text-decoration-none small">
+    <i class="bi bi-arrow-left me-1"></i>Volver al panel
+  </a>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-1">{{ arbitro.apellido }}, {{ arbitro.nombre }}</h1>
+    <p class="text-body-secondary mb-0">
+      Legajo <span class="font-monospace">{{ arbitro.legajo }}</span>
+      · {{ arbitro.categoria.value if arbitro.categoria else 'Sin escalafón' }}
+      {% if arbitro.tiene_auto %}<span class="badge text-bg-light border ms-1">auto</span>{% endif %}
+    </p>
+  </div>
+  <div class="text-end">
+    <div class="small text-body-secondary">
+      Saldo {% if periodo %}del período {{ periodo }}{% else %}total{% endif %}
+    </div>
+    <div class="fs-3 fw-semibold {% if saldo > 0 %}text-success{% elif saldo < 0 %}text-danger{% else %}text-body-secondary{% endif %}">
+      $ {{ saldo|moneda }}
+    </div>
+    <div class="small text-body-secondary">
+      {% if saldo > 0 %}A favor del árbitro{% elif saldo < 0 %}El árbitro debe a la asociación{% else %}Sin saldo{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger" role="alert">{{ error }}</div>
+{% endif %}
+
+<form method="get" action="/tesoreria/arbitros/{{ arbitro.id }}" class="row g-2 align-items-end mb-4">
+  <div class="col-auto">
+    <label class="form-label small mb-0" for="periodo">Período</label>
+    <input type="month" class="form-control" id="periodo" name="periodo" value="{{ periodo }}">
+  </div>
+  <div class="col-auto">
+    <button type="submit" class="btn btn-outline-secondary">
+      <i class="bi bi-funnel me-1"></i>Filtrar
+    </button>
+  </div>
+  {% if periodo %}
+  <div class="col-auto">
+    <a href="/tesoreria/arbitros/{{ arbitro.id }}" class="btn btn-link">Ver todo</a>
+  </div>
+  {% endif %}
+</form>
+
+<div class="card shadow-sm">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">Movimientos</span>
+    <span class="badge text-bg-secondary">{{ movimientos|length }}</span>
+  </div>
+  {% if movimientos %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th scope="col">Fecha</th>
+          <th scope="col">Período</th>
+          <th scope="col">Concepto</th>
+          <th scope="col">Detalle</th>
+          <th scope="col" class="text-end">Monto</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for movimiento in movimientos %}
+        {% set es_credito = movimiento.tipo.value == 'CREDITO' %}
+        <tr>
+          <td class="text-nowrap">{{ movimiento.fecha.strftime('%d/%m/%Y') }}</td>
+          <td class="font-monospace small">{{ movimiento.periodo }}</td>
+          <td>
+            <span class="badge text-bg-{{ 'success' if es_credito else 'danger' }}">
+              {{ concepto_etiquetas.get(movimiento.concepto.value, movimiento.concepto.value) }}
+            </span>
+            <span class="small text-body-secondary ms-1">{{ tipo_etiquetas.get(movimiento.tipo.value, '') }}</span>
+          </td>
+          <td class="small">
+            {{ movimiento.descripcion or '—' }}
+            {% if movimiento.designacion_id %}
+            <div class="text-body-secondary">Designación #{{ movimiento.designacion_id }}</div>
+            {% endif %}
+          </td>
+          <td class="text-end text-nowrap fw-semibold {% if es_credito %}text-success{% else %}text-danger{% endif %}">
+            {{ '+' if es_credito else '−' }} $ {{ movimiento.monto|moneda }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-body-secondary">
+    No hay movimientos registrados{% if periodo %} en el período {{ periodo }}{% endif %}.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

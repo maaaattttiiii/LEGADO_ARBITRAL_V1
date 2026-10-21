@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Partidos{% endblock %}
+
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">Partidos</h1>
+    <p class="text-body-secondary mb-0">
+      {{ partidos|length }} partido{{ '' if partidos|length == 1 else 's' }} en la lista.
+    </p>
+  </div>
+  <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalPartido"
+          {% if not torneos or not canchas %}disabled title="Cargá al menos un torneo y una cancha"{% endif %}>
+    <i class="bi bi-calendar-plus me-1"></i>Nuevo partido
+  </button>
+</div>
+
+{% if error %}
+<div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  <div>{{ error }}</div>
+</div>
+{% endif %}
+
+{% if not torneos or not canchas %}
+<div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+  <i class="bi bi-info-circle-fill"></i>
+  <div>
+    Para dar de alta partidos necesitás al menos un <strong>torneo</strong> y una <strong>cancha</strong> cargados.
+  </div>
+</div>
+{% endif %}
+
+<form class="card card-body shadow-sm mb-3" method="get" action="/partidos">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-4">
+      <label class="form-label" for="filtro-torneo">Torneo</label>
+      <select class="form-select" id="filtro-torneo" name="torneo_id">
+        <option value="">Todos</option>
+        {% for torneo in torneos %}
+        <option value="{{ torneo.id }}"
+                {% if filtros.torneo_id == torneo.id|string %}selected{% endif %}>
+          {{ torneo.nombre }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label" for="filtro-desde">Desde</label>
+      <input class="form-control" type="date" id="filtro-desde" name="desde"
+             value="{{ filtros.desde or '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label" for="filtro-hasta">Hasta</label>
+      <input class="form-control" type="date" id="filtro-hasta" name="hasta"
+             value="{{ filtros.hasta or '' }}">
+    </div>
+    <div class="col-md-2 d-flex gap-2">
+      <button class="btn btn-outline-primary flex-grow-1" type="submit">
+        <i class="bi bi-funnel"></i> Filtrar
+      </button>
+      <a class="btn btn-outline-secondary" href="/partidos" title="Limpiar filtros">
+        <i class="bi bi-x-lg"></i>
+      </a>
+    </div>
+  </div>
+</form>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th scope="col">Fecha y hora</th>
+          <th scope="col">Torneo</th>
+          <th scope="col">Partido</th>
+          <th scope="col">Cancha</th>
+          <th scope="col">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for partido in partidos %}
+        <tr>
+          <td class="text-nowrap font-monospace">{{ partido.fecha_hora|fecha_local }}</td>
+          <td>{{ partido.torneo.nombre }}</td>
+          <td>
+            <strong>{{ partido.equipo_local }}</strong>
+            <span class="text-body-secondary">vs</span>
+            {{ partido.equipo_visitante }}
+          </td>
+          <td>
+            {{ partido.cancha.nombre }}
+            {% if partido.cancha.localidad %}
+            <span class="text-body-secondary small">({{ partido.cancha.localidad }})</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge text-bg-{{ estado_clases.get(partido.estado.value, 'secondary') }}">
+              {{ estado_etiquetas.get(partido.estado.value, partido.estado.value) }}
+            </span>
+            {% if partido.modalidad_pago.value == 'DIFERIDO' %}
+            <span class="badge text-bg-info" title="Cobra la asociación: se acredita el 90%">Diferido</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="text-center text-body-secondary py-4">
+            No hay partidos para los filtros seleccionados.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal fade" id="modalPartido" tabindex="-1" aria-labelledby="modalPartidoTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="/partidos">
+        <div class="modal-header">
+          <h2 class="modal-title h5" id="modalPartidoTitulo">Alta de partido</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="torneo_id">Torneo <span class="text-danger">*</span></label>
+              <select class="form-select" id="torneo_id" name="torneo_id" required>
+                <option value="">Seleccioná un torneo</option>
+                {% for torneo in torneos %}
+                <option value="{{ torneo.id }}"
+                        {% if form.torneo_id == torneo.id|string %}selected{% endif %}>
+                  {{ torneo.nombre }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="cancha_id">Cancha <span class="text-danger">*</span></label>
+              <select class="form-select" id="cancha_id" name="cancha_id" required>
+                <option value="">Seleccioná una cancha</option>
+                {% for cancha in canchas %}
+                <option value="{{ cancha.id }}"
+                        {% if form.cancha_id == cancha.id|string %}selected{% endif %}>
+                  {{ cancha.nombre }}{% if cancha.localidad %} — {{ cancha.localidad }}{% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="fecha">Fecha <span class="text-danger">*</span></label>
+              <input class="form-control" type="date" id="fecha" name="fecha" required
+                     value="{{ form.fecha or '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="hora">Hora <span class="text-danger">*</span></label>
+              <input class="form-control" type="time" id="hora" name="hora" required
+                     value="{{ form.hora or '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="equipo_local">Equipo local <span class="text-danger">*</span></label>
+              <input class="form-control" id="equipo_local" name="equipo_local" required
+                     maxlength="120" value="{{ form.equipo_local or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="equipo_visitante">Equipo visitante <span class="text-danger">*</span></label>
+              <input class="form-control" id="equipo_visitante" name="equipo_visitante" required
+                     maxlength="120" value="{{ form.equipo_visitante or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="observaciones">Observaciones</label>
+              <input class="form-control" id="observaciones" name="observaciones"
+                     value="{{ form.observaciones or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="modalidad_pago">Modalidad de pago</label>
+              <select class="form-select" id="modalidad_pago" name="modalidad_pago">
+                {% for valor, etiqueta in modalidades %}
+                <option value="{{ valor }}"
+                        {% if (form.modalidad_pago or 'EN_CANCHA') == valor %}selected{% endif %}>
+                  {{ etiqueta }}
+                </option>
+                {% endfor %}
+              </select>
+              <div class="form-text">
+                En cancha: el club paga el 100% y se debita el 10% de retención.
+                Diferido: la asociación cobra y acredita el 90%.
+              </div>
+            </div>
+          </div>
+          <p class="text-body-secondary small mt-3 mb-0">
+            <span class="text-danger">*</span> Datos obligatorios. La hora se interpreta en horario local (ART).
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar partido</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if error %}
+<script>
+  new bootstrap.Modal(document.getElementById('modalPartido')).show();
+</script>
+{% endif %}
+{% endblock %}

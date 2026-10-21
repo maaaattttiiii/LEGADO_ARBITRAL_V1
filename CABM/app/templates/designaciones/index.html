@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Designaciones{% endblock %}
+
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">Designaciones</h1>
+    <p class="text-body-secondary mb-0">
+      {{ filas|length }} partido{{ '' if filas|length == 1 else 's' }} pendiente{{ '' if filas|length == 1 else 's' }} de terna.
+    </p>
+  </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  <div>{{ error }}</div>
+</div>
+{% endif %}
+
+{% if not arbitros %}
+<div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+  <i class="bi bi-info-circle-fill"></i>
+  <div>No hay árbitros activos en el padrón. Cargá árbitros antes de asignar ternas.</div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th scope="col">Fecha y hora</th>
+          <th scope="col">Partido</th>
+          <th scope="col">Terna</th>
+          <th scope="col" class="text-center">Auto</th>
+          <th scope="col" class="text-end">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in filas %}
+        {% set partido = fila.partido %}
+        <tr>
+          <td class="text-nowrap">
+            <div class="font-monospace">{{ partido.fecha_hora|fecha_local }}</div>
+            <span class="badge text-bg-{{ estado_partido_clases.get(partido.estado.value, 'secondary') }}">
+              {{ partido.estado.value|capitalize }}
+            </span>
+          </td>
+          <td>
+            <div><strong>{{ partido.equipo_local }}</strong> vs {{ partido.equipo_visitante }}</div>
+            <div class="text-body-secondary small">
+              {{ partido.torneo.nombre }} · {{ partido.cancha.nombre }}
+            </div>
+          </td>
+          <td>
+            <ul class="list-unstyled mb-0 small">
+              {% for rol, etiqueta in fila.roles %}
+              {% set designacion = fila.terna.get(rol) %}
+              <li class="d-flex flex-wrap align-items-center gap-1">
+                <span class="text-body-secondary" style="min-width: 7rem;">{{ etiqueta }}:</span>
+                {% if designacion %}
+                  <span>{{ designacion.arbitro.apellido }}, {{ designacion.arbitro.nombre }}</span>
+                  {% if designacion.arbitro.tiene_auto %}
+                  <span class="badge text-bg-light border" data-perfil-auto="si"
+                        title="Tiene vehículo propio según su perfil">auto</span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-body-secondary fst-italic">Sin asignar</span>
+                {% endif %}
+              </li>
+              {% endfor %}
+              {% if fila.roles_extra %}
+              <li class="text-danger small">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                La terna tiene árbitros de más para U11: al guardar se conservan
+                solo los {{ fila.roles|length }} roles de arriba.
+              </li>
+              {% endif %}
+            </ul>
+          </td>
+          <td class="text-center">
+            {% if fila.auto %}
+            <span class="badge text-bg-info" data-auto-terna="si"
+                  title="{{ fila.auto.arbitro.apellido }}, {{ fila.auto.arbitro.nombre }}">
+              <i class="bi bi-car-front-fill"></i> {{ fila.auto.arbitro.apellido }}
+            </span>
+            {% else %}
+            <span class="text-body-secondary">—</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary" type="button"
+                    data-bs-toggle="modal" data-bs-target="#modalTerna{{ partido.id }}">
+              <i class="bi bi-people me-1"></i>
+              {{ 'Editar terna' if fila.terna else 'Asignar terna' }}
+            </button>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="text-center text-body-secondary py-4">
+            No hay partidos pendientes de designación.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% for fila in filas %}
+{% set partido = fila.partido %}
+<div class="modal fade" id="modalTerna{{ partido.id }}" tabindex="-1"
+     aria-labelledby="modalTernaTitulo{{ partido.id }}" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="/designaciones">
+        <input type="hidden" name="partido_id" value="{{ partido.id }}">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title h5" id="modalTernaTitulo{{ partido.id }}">
+              Terna · {{ partido.equipo_local }} vs {{ partido.equipo_visitante }}
+            </h2>
+            <div class="text-body-secondary small">
+              {{ partido.fecha_hora|fecha_local }} · {{ partido.torneo.nombre }}
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          {% if fila.es_u11 %}
+          <div class="alert alert-info d-flex align-items-start gap-2 py-2 small">
+            <i class="bi bi-info-circle-fill"></i>
+            <div>
+              Partido U11: máximo 2 árbitros. Con uno se cobra la tarifa U11;
+              con dos, la tarifa U11_DOBLE se reparte en partes iguales.
+            </div>
+          </div>
+          {% endif %}
+          {% for rol, etiqueta in fila.roles %}
+          {% if form.partido_id == partido.id|string %}
+            {% set seleccionado = form.get('principal_id' if rol.value == 'PRINCIPAL'
+              else 'asistente_1_id' if rol.value == 'ASISTENTE_1'
+              else 'asistente_2_id' if rol.value == 'ASISTENTE_2' else 'cuarto_id') %}
+          {% else %}
+            {% set seleccionado = (fila.terna.get(rol).arbitro_id|string) if fila.terna.get(rol) else '' %}
+          {% endif %}
+          <div class="mb-3">
+            <label class="form-label" for="rol-{{ rol.value }}-{{ partido.id }}">
+              {{ etiqueta }}
+              {% if rol.value == 'PRINCIPAL' %}<span class="text-danger">*</span>{% endif %}
+            </label>
+            <select class="form-select" id="rol-{{ rol.value }}-{{ partido.id }}" name="{{ rol.value|lower }}_id">
+              <option value="">— Sin asignar —</option>
+              {% for arbitro in arbitros %}
+              <option value="{{ arbitro.id }}"
+                      {% if seleccionado == arbitro.id|string %}selected{% endif %}
+                      {% if arbitro.tiene_auto %}data-tiene-auto="si"{% endif %}>
+                {{ arbitro.apellido }}, {{ arbitro.nombre }}{% if arbitro.tiene_auto %} (auto){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endfor %}
+
+          <fieldset class="border rounded p-3 mt-3">
+            <legend class="float-none w-auto fs-6 px-1 mb-2">¿Quién usa su vehículo?</legend>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="auto_rol" value=""
+                     id="auto-ninguno-{{ partido.id }}"
+                     {% if not form.auto_rol %}checked{% endif %}>
+              <label class="form-check-label" for="auto-ninguno-{{ partido.id }}">
+                Ninguno (sin viático)
+              </label>
+            </div>
+            {% for rol, etiqueta in fila.roles %}
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="auto_rol" value="{{ rol.value }}"
+                     id="auto-{{ rol.value }}-{{ partido.id }}"
+                     {% if form.auto_rol == rol.value %}checked{% endif %}>
+              <label class="form-check-label" for="auto-{{ rol.value }}-{{ partido.id }}">
+                {{ etiqueta }}
+              </label>
+            </div>
+            {% endfor %}
+            <div class="form-text">
+              El viático se calcula por los litros de la cancha según la localidad.
+            </div>
+          </fieldset>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar terna</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+{% if error and form.partido_id %}
+<script>
+  (function () {
+    const modal = document.getElementById('modalTerna{{ form.partido_id }}');
+    if (modal) {
+      new bootstrap.Modal(modal).show();
+    }
+  })();
+</script>
+{% endif %}
+{% endblock %}
