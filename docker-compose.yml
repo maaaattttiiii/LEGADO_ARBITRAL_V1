@@ -1,0 +1,34 @@
+name: cabm
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cabm}
+      POSTGRES_USER: ${POSTGRES_USER:-cabm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en el archivo .env}
+    volumes:
+      - cabm_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cabm} -d ${POSTGRES_DB:-cabm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cabm}:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en el archivo .env}@db:5432/${POSTGRES_DB:-cabm}
+      CABM_SECRET_KEY: ${CABM_SECRET_KEY:?Definí CABM_SECRET_KEY (openssl rand -hex 32)}
+      CABM_HTTPS_ONLY: ${CABM_HTTPS_ONLY:-1}
+    ports:
+      - "${CABM_PORT:-8000}:8000"
+    restart: unless-stopped
+
+volumes:
+  cabm_pgdata:

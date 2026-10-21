@@ -83,7 +83,12 @@ LegadoArbitral/            # raíz del repositorio
 │   └── seeds/
 │       ├── datos_iniciales.py  # planilla oficial (litros, precio, categorías)
 │       └── usuarios.py         # tesorero + cuentas de árbitros
-├── docs/dominio.md          # fuente de verdad del dominio
+├── docs/
+│   ├── dominio.md           # fuente de verdad del dominio
+│   └── despliegue.md        # Docker/PostgreSQL, variables y backups
+├── Dockerfile               # imagen de producción (migra y arranca uvicorn)
+├── docker-compose.yml       # app + PostgreSQL 17
+├── .env.example             # variables de producción documentadas
 ├── tests/
 │   ├── conftest.py          # client autenticado como tesorero + client_anonimo
 │   ├── test_auth.py         # login, guardas y aislamiento por usuario
