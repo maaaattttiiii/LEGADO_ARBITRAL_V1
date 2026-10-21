@@ -162,7 +162,7 @@ LegadoArbitral/            # raíz del repositorio
 41. **Rate limiting del login (RN-48)**: `app/limiter.py` (`LimitadorLogin`) bloquea el par `(IP, email)` 15 minutos tras 5 fallos en 15 minutos. `POST /login` consulta el bloqueo **antes** de autenticar y responde `429` con `Retry-After`; el login exitoso limpia el contador. Es estado en memoria: una sola instancia (con varias, Redis/base).
 42. **Auditoría (RN-49)**: los servicios reciben `usuario_id` y lo guardan en cada movimiento (liquidación, retención, viático, reintegro, ajuste) y en `CierrePeriodo`; las rutas lo toman de `Depends(requiere_tesorero)` (nunca de un campo del formulario). Las FK usan `ON DELETE RESTRICT`; la columna es nullable para datos históricos.
 43. **Reapertura y cierre en lote (RN-50)**: `reabrir_periodo()` exige período cerrado vigente y motivo ≥ 10 caracteres; setea `CierrePeriodo.reabierto_en` (una fila por período) y audita `REAPERTURA` en `auditoria_periodo` (append-only, con motivo y usuario). `cerrar_periodos()` valida **todos** los períodos antes de escribir (inválido/repetido/ya cerrado → sin cambios) y cierra en una transacción. Un cierre posterior reactiva la fila y audita `CIERRE`. Rutas: `POST /tesoreria/reapertura` y `POST /tesoreria/cierres-lote`, solo tesorero. La reapertura habilita de nuevo las operaciones del mes; nunca borra ni reescribe movimientos.
-44. **Documentación viva**: todo cambio de negocio actualiza la RN en `docs/dominio.md`, la spec en `docs/specs/` y la tabla de `CHANGES.md`. Si cambia una capa, un contrato HTTP, el esquema de seguridad o el despliegue, se actualiza `docs/arquitectura.md`. Los tests nuevos se reflejan en la suite de `CHANGES.md`.
+44. **Documentación viva**: todo cambio de negocio actualiza la RN en `docs/dominio.md` y su reflejo en `openspec/specs/<capacidad>/spec.md`, la spec de la entrega en `docs/specs/` y la tabla de `CHANGES.md`. Si cambia una capa, un contrato HTTP, el esquema de seguridad o el despliegue, se actualiza `docs/arquitectura.md`. Los tests nuevos se reflejan en la suite de `CHANGES.md`.
 
 ## 5. Máquinas de estado
 
@@ -211,9 +211,11 @@ Orden de lectura antes de tocar código:
 | `docs/dominio.md` | Reglas de negocio (RN-01..RN-50), flujos y estados |
 | `docs/arquitectura.md` | Capas, ciclo de request, modelo de datos, migraciones y deploy |
 | `docs/specs/<version>.md` | Contrato y criterios de aceptación de una entrega |
+| `openspec/specs/<capacidad>/spec.md` | Specs vivas por capacidad (reflejo ejecutable de las RN). Validar con `openspec validate --specs` |
 | `CHANGES.md` | Historial de entregas, suite de tests y deuda técnica |
 | `docs/despliegue.md` | Docker, PostgreSQL, variables y backups |
 
 Regla de mantenimiento (regla 44): ningún cambio se considera terminado si la
-RN, la spec y `CHANGES.md` no quedaron actualizados. Los tests se ejecutan con
+RN, las specs (`docs/specs/` y `openspec/specs/`) y `CHANGES.md` no quedaron
+actualizados. Los tests se ejecutan con
 `& C:\Python314\python.exe -m pytest -q` (hoy 401 tests).

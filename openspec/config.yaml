@@ -1,0 +1,52 @@
+schema: spec-driven
+
+context: |
+  Proyecto: Sistema de Gestión del Colegio de Árbitros (CABM) — Legado Arbitral.
+  Stack: Python 3.14, FastAPI + Jinja2, SQLAlchemy 2.1, Alembic,
+  SQLite (dev) / PostgreSQL 17 (prod), pytest + httpx.
+
+  Language: es
+  All artifacts must be written in es.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+
+  Fuentes de verdad (en orden de precedencia):
+  - `docs/dominio.md` — reglas de negocio RN-01..RN-50. Fuente canónica del dominio;
+    `openspec/specs/` la refleja. Si hay contradicción, gana `docs/dominio.md`.
+  - `docs/specs/v2_seguridad_auditoria.md` — contrato y criterios de aceptación de la
+    entrega V2 (F1..F5).
+  - `docs/arquitectura.md` — capas, modelo de datos, migraciones y despliegue.
+  - `AGENTS.md` §4 — reglas duras del proyecto.
+
+  Trazabilidad: cada Requirement de `openspec/specs/` cita su origen con `Ref: RN-xx` / `Ref: Fx`.
+
+  Capacidades existentes: arbitros, auditoria, autenticacion, canchas-torneos,
+  designaciones, despliegue, exportacion, liquidacion, partidos, periodos,
+  tarifas, tesoreria.
+
+rules:
+  proposal:
+    - Declarar explícitamente el alcance excluido.
+    - Citar los RN afectados de `docs/dominio.md` y las capacidades de `openspec/specs/` que se modifican.
+    - Indicar el nivel de governance (CRÍTICO / ALTO / MEDIO / BAJO) según `AGENTS.md` §7.
+  design:
+    - Respetar las reglas duras de `AGENTS.md` §4 (Decimal, saldo no persistido, snapshot, idempotencia, transacciones en el llamador).
+    - Toda migración de esquema pasa por Alembic.
+  specs:
+    - Cada Requirement cita su origen con la marca `Ref` y el identificador (`RN-xx` o `Fx`).
+    - Cada Requirement MUST tener al menos un `#### Scenario:` verificable.
+    - Palabras normativas (SHALL / SHALL NOT / MUST) en inglés; el resto en español.
+  tasks:
+    - Aplicar TDD estricto; cada tarea arranca con un test que falla.
+    - Cada tarea referencia el archivo de test que la verifica.
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
