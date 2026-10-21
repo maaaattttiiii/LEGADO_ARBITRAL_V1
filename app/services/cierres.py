@@ -21,7 +21,12 @@ class PeriodoCerrado(CierreInvalido):
     """La operación toca un período ya cerrado."""
 
 
-def cerrar_periodo(session: Session, *, periodo: str | None) -> CierrePeriodo:
+def cerrar_periodo(
+    session: Session,
+    *,
+    periodo: str | None,
+    usuario_id: int | None = None,
+) -> CierrePeriodo:
     """Registra el cierre de un período. No hace ``commit`` (regla 13)."""
     try:
         per = normalizar_periodo(periodo)
@@ -34,7 +39,9 @@ def cerrar_periodo(session: Session, *, periodo: str | None) -> CierrePeriodo:
         raise PeriodoYaCerrado(f"El período {per} ya estaba cerrado.")
 
     cierre = CierrePeriodo(
-        periodo=per, cerrado_en=datetime.now(timezone.utc)
+        periodo=per,
+        cerrado_en=datetime.now(timezone.utc),
+        usuario_id=usuario_id,
     )
     session.add(cierre)
     session.flush()

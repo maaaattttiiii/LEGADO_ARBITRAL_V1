@@ -1,10 +1,14 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.models.base import TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.usuario import Usuario
 
 
 class CierrePeriodo(TimestampMixin, Base):
@@ -29,3 +33,9 @@ class CierrePeriodo(TimestampMixin, Base):
     cerrado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+    # Auditoría (RN-49): quién ejecutó el cierre.
+    usuario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuario.id", ondelete="RESTRICT")
+    )
+
+    usuario: Mapped["Usuario | None"] = relationship()

@@ -26,6 +26,7 @@ from app.models.enums import (
 
 if TYPE_CHECKING:
     from app.models.arbitro import Arbitro
+    from app.models.usuario import Usuario
 
 
 class MovimientoCuentaCorriente(TimestampMixin, Base):
@@ -57,8 +58,13 @@ class MovimientoCuentaCorriente(TimestampMixin, Base):
     monto: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     periodo: Mapped[str] = mapped_column(String(7), nullable=False)
     descripcion: Mapped[str | None] = mapped_column(String(255))
+    # Auditoría (RN-49): quién liquidó o cargó el movimiento.
+    usuario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuario.id", ondelete="RESTRICT")
+    )
 
     arbitro: Mapped["Arbitro"] = relationship(back_populates="movimientos")
+    usuario: Mapped["Usuario | None"] = relationship()
 
 
 def calcular_saldo(session: Session, arbitro_id: int) -> Decimal:

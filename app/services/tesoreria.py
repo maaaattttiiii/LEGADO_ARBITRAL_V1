@@ -167,6 +167,7 @@ def crear_ajuste(
     monto: str | Decimal,
     periodo: str,
     descripcion: str | None = None,
+    usuario_id: int | None = None,
 ) -> MovimientoCuentaCorriente:
     """Registra un movimiento manual en la cuenta corriente.
 
@@ -201,6 +202,7 @@ def crear_ajuste(
         monto=importe,
         periodo=per,
         descripcion=(descripcion or "").strip() or None,
+        usuario_id=usuario_id,
     )
     session.add(movimiento)
     session.flush()

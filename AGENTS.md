@@ -145,6 +145,7 @@ LegadoArbitral/            # raíz del repositorio
 39. **Credenciales iniciales del seed** (desarrollo): `tesorero@cabm.org.ar` / `cabm2026`; cada árbitro sin usuario recibe `<email o legajo>@cabm.org.ar` / `arbitro123`. Cambiarlas antes de producción.
 40. **Cambio de clave inicial (RN-47)**: `debe_cambiar_password=True` en toda cuenta sembrada; las guardas redirigen a `/cambiar-password` hasta que la cambie (`CambioPasswordRequerido` → 303). El cambio exige la clave actual, mínimo 8 caracteres y una clave distinta; jamás se loguea. Al guardar se limpia la marca en la base y en la sesión.
 41. **Rate limiting del login (RN-48)**: `app/limiter.py` (`LimitadorLogin`) bloquea el par `(IP, email)` 15 minutos tras 5 fallos en 15 minutos. `POST /login` consulta el bloqueo **antes** de autenticar y responde `429` con `Retry-After`; el login exitoso limpia el contador. Es estado en memoria: una sola instancia (con varias, Redis/base).
+42. **Auditoría (RN-49)**: los servicios reciben `usuario_id` y lo guardan en cada movimiento (liquidación, retención, viático, reintegro, ajuste) y en `CierrePeriodo`; las rutas lo toman de `Depends(requiere_tesorero)` (nunca de un campo del formulario). Las FK usan `ON DELETE RESTRICT`; la columna es nullable para datos históricos.
 
 ## 5. Máquinas de estado
 

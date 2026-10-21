@@ -17,6 +17,7 @@ from app.models.enums import (
     TipoMovimiento,
 )
 from app.models.partido import Partido
+from app.models.usuario import Usuario
 from app.services.cierres import (
     CierreInvalido,
     PeriodoCerrado,
@@ -223,13 +224,19 @@ def detalle_cuenta(
 
 
 @router.post("/tesoreria/liquidar-partido/{partido_id}")
-def liquidar(partido_id: int, db: Session = Depends(get_db)):
+def liquidar(
+    partido_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(requiere_tesorero),
+):
     partido = db.get(Partido, partido_id)
     if partido is None:
         raise HTTPException(status_code=404, detail="No existe el partido.")
 
     try:
-        resultado = liquidar_partido(db, partido=partido)
+        resultado = liquidar_partido(
+            db, partido=partido, usuario_id=usuario.id
+        )
         db.commit()
     except (ErrorLiquidacion, TarifaNoEncontrada, ErrorViatico, PeriodoCerrado) as exc:
         db.rollback()
@@ -253,10 +260,14 @@ def cobrar(
     partido_id: int,
     db: Session = Depends(get_db),
     fecha_cobro: str = Form(""),
+    usuario: Usuario = Depends(requiere_tesorero),
 ):
     try:
         resultado = registrar_cobro(
-            db, partido_id=partido_id, fecha_cobro=fecha_cobro
+            db,
+            partido_id=partido_id,
+            fecha_cobro=fecha_cobro,
+            usuario_id=usuario.id,
         )
         db.commit()
     except (CobroInvalido, PeriodoCerrado) as exc:
@@ -321,9 +332,12 @@ def cerrar(
     request: Request,
     db: Session = Depends(get_db),
     periodo: str = Form(""),
+    usuario: Usuario = Depends(requiere_tesorero),
 ):
     try:
-        cierre = cerrar_periodo(db, periodo=periodo)
+        cierre = cerrar_periodo(
+            db, periodo=periodo, usuario_id=usuario.id
+        )
         db.commit()
     except PeriodoYaCerrado as exc:
         db.rollback()
@@ -355,6 +369,7 @@ def registrar_ajuste(
     monto: str = Form(""),
     periodo: str = Form(""),
     descripcion: str = Form(""),
+    usuario: Usuario = Depends(requiere_tesorero),
 ):
     form = {
         "arbitro_id": arbitro_id,
@@ -373,6 +388,7 @@ def registrar_ajuste(
             monto=monto,
             periodo=periodo,
             descripcion=descripcion,
+            usuario_id=usuario.id,
         )
         db.commit()
     except (AjusteInvalido, PeriodoCerrado) as exc:

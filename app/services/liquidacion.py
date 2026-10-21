@@ -166,6 +166,7 @@ def liquidar_partido(
     session: Session,
     *,
     partido: Partido,
+    usuario_id: int | None = None,
 ) -> ResultadoLiquidacion:
     validar_abierto(session, partido.periodo)
 
@@ -331,6 +332,7 @@ def liquidar_partido(
                     f"Honorario partido {partido.id} - "
                     f"{designacion.rol.value}{detalle}"
                 ),
+                usuario_id=usuario_id,
             )
         )
         if designacion.honorario is None:
@@ -351,6 +353,7 @@ def liquidar_partido(
                         f"Retención 10% partido {partido.id} - "
                         f"{designacion.rol.value}"
                     ),
+                    usuario_id=usuario_id,
                 )
             )
             retenciones += 1
@@ -374,6 +377,7 @@ def liquidar_partido(
                     f"Viático partido {partido.id} - "
                     f"{litros_viatico.quantize(MONEDA)} L"
                 ),
+                usuario_id=usuario_id,
             )
         )
         viaticos += 1
@@ -404,7 +408,9 @@ def _fecha_de_cobro(valor: date | datetime | str | None) -> date:
         raise CobroInvalido(f"Fecha de cobro inválida: '{texto}'.") from exc
 
 
-def _reintegrar_retenciones(session: Session, *, partido: Partido) -> int:
+def _reintegrar_retenciones(
+    session: Session, *, partido: Partido, usuario_id: int | None = None
+) -> int:
     """Acredita el 10% retenido cuando el cobro llegó con mora (RN-31).
 
     Se apoya en `UNIQUE(designacion_id, concepto)`: un `AJUSTE` por designación
@@ -453,6 +459,7 @@ def _reintegrar_retenciones(session: Session, *, partido: Partido) -> int:
                     f"Mora > 90 días: reintegro de retención "
                     f"partido {partido.id}"
                 ),
+                usuario_id=usuario_id,
             )
         )
         creados += 1
@@ -464,6 +471,7 @@ def registrar_cobro(
     *,
     partido_id: int | str,
     fecha_cobro: date | datetime | str | None,
+    usuario_id: int | None = None,
 ) -> ResultadoCobro:
     """Registra la fecha real de cobro municipal de un partido diferido (RN-31).
 
@@ -505,7 +513,13 @@ def registrar_cobro(
     partido.fecha_cobro = fecha
     dias = (fecha - fecha_partido).days
     en_mora = dias > PLAZO_COBRO
-    reintegros = _reintegrar_retenciones(session, partido=partido) if en_mora else 0
+    reintegros = (
+        _reintegrar_retenciones(
+            session, partido=partido, usuario_id=usuario_id
+        )
+        if en_mora
+        else 0
+    )
 
     session.flush()
     return ResultadoCobro(dias=dias, en_mora=en_mora, reintegros_creados=reintegros)

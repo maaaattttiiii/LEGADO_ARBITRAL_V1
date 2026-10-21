@@ -66,6 +66,7 @@
           <th scope="col">Período</th>
           <th scope="col">Concepto</th>
           <th scope="col">Detalle</th>
+          <th scope="col">Registró</th>
           <th scope="col" class="text-end">Monto</th>
         </tr>
       </thead>
@@ -86,6 +87,9 @@
             {% if movimiento.designacion_id %}
             <div class="text-body-secondary">Designación #{{ movimiento.designacion_id }}</div>
             {% endif %}
+          </td>
+          <td class="small text-body-secondary">
+            {{ movimiento.usuario.email if movimiento.usuario else '—' }}
           </td>
           <td class="text-end text-nowrap fw-semibold {% if es_credito %}text-success{% else %}text-danger{% endif %}">
             {{ '+' if es_credito else '−' }} $ {{ movimiento.monto|moneda }}
