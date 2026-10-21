@@ -23,6 +23,7 @@ LegadoArbitral/            # raíz del repositorio
 │   ├── main.py              # instancia FastAPI + SessionMiddleware + handlers 303/403
 │   ├── templating.py        # Jinja2Templates (rutas absolutas)
 │   ├── seguridad.py         # scrypt, sesión, requiere_tesorero / requiere_arbitro
+│   ├── limiter.py           # LimitadorLogin (intentos de login en memoria)
 │   ├── database.py          # engine, SessionLocal, Base, get_db
 │   ├── models/
 │   │   ├── base.py          # Base + TimestampMixin
@@ -50,7 +51,7 @@ LegadoArbitral/            # raíz del repositorio
 │   │   ├── torneos.py       # ABM de torneos (baja lógica)
 │   │   ├── cierres.py       # cerrar_periodo(), cerrar_periodos(), reabrir_periodo(), validar_abierto()
 │   │   ├── validaciones.py  # helpers de parseo de formularios
-│   │   ├── usuarios.py      # crear_usuario(), autenticar()
+│   │   ├── usuarios.py      # crear_usuario(), autenticar(), cambiar_password()
 │   │   └── exportacion.py   # liquidacion_mensual(), liquidacion_csv(), liquidacion_pdf()
 │   ├── formato.py           # formatear_moneda() (formato argentino)
 │   ├── periodos.py          # normalizar_periodo(), periodo_de() (ART)
@@ -85,15 +86,23 @@ LegadoArbitral/            # raíz del repositorio
 │       ├── datos_iniciales.py  # planilla oficial (litros, precio, categorías)
 │       └── usuarios.py         # tesorero + cuentas de árbitros
 ├── docs/
-│   ├── dominio.md           # fuente de verdad del dominio
-│   └── despliegue.md        # Docker/PostgreSQL, variables y backups
+│   ├── dominio.md           # fuente de verdad del dominio (RN-01..RN-50)
+│   ├── arquitectura.md      # capas, flujo de request, migraciones y deploy
+│   ├── despliegue.md        # Docker/PostgreSQL, variables y backups
+│   └── specs/
+│       └── v2_seguridad_auditoria.md  # spec de seguridad, auditoría y reaperturas
+├── CHANGES.md               # historial de entregas + suite de tests vigente
 ├── Dockerfile               # imagen de producción (migra y arranca uvicorn)
 ├── docker-compose.yml       # app + PostgreSQL 17
 ├── .env.example             # variables de producción documentadas
 ├── tests/
 │   ├── conftest.py          # client autenticado como tesorero + client_anonimo
 │   ├── test_auth.py         # login, guardas y aislamiento por usuario
-│   └── ...
+│   ├── test_password.py     # clave inicial y cambio obligatorio
+│   ├── test_login_limiter.py# rate limiting del login
+│   ├── test_auditoria.py    # usuario_id en movimientos y cierres
+│   ├── test_reapertura.py   # reapertura y cierre en lote
+│   └── ...                  # dominio, rutas, exportación, seed y deploy
 ├── alembic.ini
 ├── alembic/
 │   └── versions/            # migraciones (única vía para cambiar el esquema)
@@ -153,6 +162,7 @@ LegadoArbitral/            # raíz del repositorio
 41. **Rate limiting del login (RN-48)**: `app/limiter.py` (`LimitadorLogin`) bloquea el par `(IP, email)` 15 minutos tras 5 fallos en 15 minutos. `POST /login` consulta el bloqueo **antes** de autenticar y responde `429` con `Retry-After`; el login exitoso limpia el contador. Es estado en memoria: una sola instancia (con varias, Redis/base).
 42. **Auditoría (RN-49)**: los servicios reciben `usuario_id` y lo guardan en cada movimiento (liquidación, retención, viático, reintegro, ajuste) y en `CierrePeriodo`; las rutas lo toman de `Depends(requiere_tesorero)` (nunca de un campo del formulario). Las FK usan `ON DELETE RESTRICT`; la columna es nullable para datos históricos.
 43. **Reapertura y cierre en lote (RN-50)**: `reabrir_periodo()` exige período cerrado vigente y motivo ≥ 10 caracteres; setea `CierrePeriodo.reabierto_en` (una fila por período) y audita `REAPERTURA` en `auditoria_periodo` (append-only, con motivo y usuario). `cerrar_periodos()` valida **todos** los períodos antes de escribir (inválido/repetido/ya cerrado → sin cambios) y cierra en una transacción. Un cierre posterior reactiva la fila y audita `CIERRE`. Rutas: `POST /tesoreria/reapertura` y `POST /tesoreria/cierres-lote`, solo tesorero. La reapertura habilita de nuevo las operaciones del mes; nunca borra ni reescribe movimientos.
+44. **Documentación viva**: todo cambio de negocio actualiza la RN en `docs/dominio.md`, la spec en `docs/specs/` y la tabla de `CHANGES.md`. Si cambia una capa, un contrato HTTP, el esquema de seguridad o el despliegue, se actualiza `docs/arquitectura.md`. Los tests nuevos se reflejan en la suite de `CHANGES.md`.
 
 ## 5. Máquinas de estado
 
@@ -191,3 +201,19 @@ Variables de entorno: `DATABASE_URL`, `CABM_SECRET_KEY` (obligatoria en producci
 
 - **Cierre programado**: el cierre es manual (individual o en lote); no hay job automático de fin de mes.
 - **Rate limiting distribuido**: el estado del login vive en memoria (regla 41); con varias instancias hay que moverlo a Redis o a la base.
+
+## 9. Documentación
+
+Orden de lectura antes de tocar código:
+
+| Documento | Para qué |
+|---|---|
+| `docs/dominio.md` | Reglas de negocio (RN-01..RN-50), flujos y estados |
+| `docs/arquitectura.md` | Capas, ciclo de request, modelo de datos, migraciones y deploy |
+| `docs/specs/<version>.md` | Contrato y criterios de aceptación de una entrega |
+| `CHANGES.md` | Historial de entregas, suite de tests y deuda técnica |
+| `docs/despliegue.md` | Docker, PostgreSQL, variables y backups |
+
+Regla de mantenimiento (regla 44): ningún cambio se considera terminado si la
+RN, la spec y `CHANGES.md` no quedaron actualizados. Los tests se ejecutan con
+`& C:\Python314\python.exe -m pytest -q` (hoy 401 tests).
