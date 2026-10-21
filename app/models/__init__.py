@@ -1,9 +1,11 @@
 from app.database import Base
 from app.models.arbitro import Arbitro
+from app.models.auditoria import AuditoriaPeriodo
 from app.models.cancha import Cancha
 from app.models.cierre_periodo import CierrePeriodo
 from app.models.designacion import Designacion
 from app.models.enums import (
+    AccionAuditoria,
     CategoriaArbitro,
     ConceptoMovimiento,
     EstadoArbitro,
@@ -24,6 +26,7 @@ from app.models.usuario import Usuario
 __all__ = [
     "Base",
     "Arbitro",
+    "AuditoriaPeriodo",
     "Cancha",
     "CierrePeriodo",
     "CategoriaArbitro",
@@ -37,6 +40,7 @@ __all__ = [
     "Usuario",
     "EstadoArbitro",
     "EstadoPartido",
+    "AccionAuditoria",
     "ModalidadPago",
     "RolDesignacion",
     "EstadoDesignacion",

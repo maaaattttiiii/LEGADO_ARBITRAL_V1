@@ -36,6 +36,7 @@ LegadoArbitral/            # raíz del repositorio
 │   │   ├── tarifa.py        # Tarifa (aranceles con vigencia)
 │   │   ├── precio_combustible.py  # PrecioCombustible (Nafta Infinia, vigencias)
 │   │   ├── movimiento.py    # MovimientoCuentaCorriente + calcular_saldo()
+│   │   ├── auditoria.py     # AuditoriaPeriodo (historial de cierres/reaperturas)
 │   │   └── cierre_periodo.py  # CierrePeriodo (bloqueo de meses cerrados)
 │   ├── services/            # lógica de negocio (tarifas, viáticos, liquidación)
 │   │   ├── arbitros.py      # crear_arbitro() + validaciones del padrón
@@ -47,7 +48,7 @@ LegadoArbitral/            # raíz del repositorio
 │   │   ├── tesoreria.py     # saldos(), saldo_de(), movimientos_de_arbitro(), crear_ajuste()
 │   │   ├── canchas.py       # ABM de canchas (baja lógica)
 │   │   ├── torneos.py       # ABM de torneos (baja lógica)
-│   │   ├── cierres.py       # cerrar_periodo(), validar_abierto(), periodos_cerrados()
+│   │   ├── cierres.py       # cerrar_periodo(), cerrar_periodos(), reabrir_periodo(), validar_abierto()
 │   │   ├── validaciones.py  # helpers de parseo de formularios
 │   │   ├── usuarios.py      # crear_usuario(), autenticar()
 │   │   └── exportacion.py   # liquidacion_mensual(), liquidacion_csv(), liquidacion_pdf()
@@ -142,7 +143,7 @@ LegadoArbitral/            # raíz del repositorio
 31. **Exportación mensual (RN-37)**: `GET /tesoreria/exportar?periodo=AAAA-MM&formato=csv|pdf`. Una fila por designación (`HONORARIO`, `RETENCION`, `VIATICO` del período; los ajustes no entran), orden por apellido sin tildes, fila `TOTAL`, `neto = honorario - retención + viático`. CSV: BOM + `;` + decimales con coma. PDF: reportlab, A4 apaisado con membrete. Compartir `formatear_moneda()` de `app/formato.py`; no reimplementar el formato.
 32. **Período contable = fecha local (ART, RN-39)**: usar `partido.periodo` (`periodo_de()` en `app/periodos.py`), nunca `fecha_hora.date()` (UTC). Un partido del 31/10 23:00 ART es de octubre.
 33. **Cierre de período (RN-38/41)**: `cerrar_periodo()` es único e idempotente (segundo intento → `PeriodoYaCerrado`, sin duplicar). Con el período cerrado, `validar_abierto()` hace fallar `crear_partido()`, `asignar_terna()`, `liquidar_partido()`, `registrar_cobro()` y `crear_ajuste()` con `PeriodoCerrado`. Consultar y exportar sigue permitido; nada se borra ni se reescribe.
-34. **Correcciones retroactivas (RN-40)**: nunca se reabre un período cerrado ni se editan movimientos históricos; la corrección es un `AJUSTE` (o descuento/adelanto/pago/multa) en el período **abierto**.
+34. **Correcciones retroactivas (RN-40)**: nunca se editan movimientos históricos; la corrección habitual es un `AJUSTE` (o descuento/adelanto/pago/multa) en el período **abierto**. Si hay que operar sobre el mes (liquidar un partido olvidado), se usa la reapertura auditada de la regla 43.
 35. **Contraseñas**: siempre `hash_password()` (scrypt con sal) de `app/seguridad.py`. **Prohibido** guardar o loguear contraseñas en claro. `Usuario.email` se normaliza a minúsculas y es único; un `ARBITRO` **exige** `arbitro_id` (CHECK `arbitro_requerido`) y un `TESORERO` no lo lleva.
 36. **Sesión (RN-43)**: `SessionMiddleware` con cookie `cabm_session` firmada por `CABM_SECRET_KEY`, `HttpOnly`, `SameSite=Lax`, 8 h. La sesión guarda solo `usuario_id`, `rol`, `nombre` y `arbitro_id`. En producción definir `CABM_SECRET_KEY` y `CABM_HTTPS_ONLY=1`; sin secreto se genera uno efímero por proceso (sirve para dev, invalida sesiones al reiniciar).
 37. **Guardas (RN-44)**: `APIRouter(dependencies=[Depends(requiere_tesorero)])` en arbitros, partidos, designaciones, tesorería, canchas, torneos y tarifas; `Depends(requiere_arbitro)` en el portal. Sin sesión → `NoAutenticado` (303 a `/login?next=`); rol incorrecto → `AccesoDenegado` (403). Nunca resolver permisos a mano en la ruta.
@@ -151,6 +152,7 @@ LegadoArbitral/            # raíz del repositorio
 40. **Cambio de clave inicial (RN-47)**: `debe_cambiar_password=True` en toda cuenta sembrada; las guardas redirigen a `/cambiar-password` hasta que la cambie (`CambioPasswordRequerido` → 303). El cambio exige la clave actual, mínimo 8 caracteres y una clave distinta; jamás se loguea. Al guardar se limpia la marca en la base y en la sesión.
 41. **Rate limiting del login (RN-48)**: `app/limiter.py` (`LimitadorLogin`) bloquea el par `(IP, email)` 15 minutos tras 5 fallos en 15 minutos. `POST /login` consulta el bloqueo **antes** de autenticar y responde `429` con `Retry-After`; el login exitoso limpia el contador. Es estado en memoria: una sola instancia (con varias, Redis/base).
 42. **Auditoría (RN-49)**: los servicios reciben `usuario_id` y lo guardan en cada movimiento (liquidación, retención, viático, reintegro, ajuste) y en `CierrePeriodo`; las rutas lo toman de `Depends(requiere_tesorero)` (nunca de un campo del formulario). Las FK usan `ON DELETE RESTRICT`; la columna es nullable para datos históricos.
+43. **Reapertura y cierre en lote (RN-50)**: `reabrir_periodo()` exige período cerrado vigente y motivo ≥ 10 caracteres; setea `CierrePeriodo.reabierto_en` (una fila por período) y audita `REAPERTURA` en `auditoria_periodo` (append-only, con motivo y usuario). `cerrar_periodos()` valida **todos** los períodos antes de escribir (inválido/repetido/ya cerrado → sin cambios) y cierra en una transacción. Un cierre posterior reactiva la fila y audita `CIERRE`. Rutas: `POST /tesoreria/reapertura` y `POST /tesoreria/cierres-lote`, solo tesorero. La reapertura habilita de nuevo las operaciones del mes; nunca borra ni reescribe movimientos.
 
 ## 5. Máquinas de estado
 
@@ -187,5 +189,5 @@ Variables de entorno: `DATABASE_URL`, `CABM_SECRET_KEY` (obligatoria en producci
 
 ## 8. Pendientes conocidos
 
-- **Reapertura de período**: no está implementada (el cierre es definitivo); si el negocio la necesita, debe pasar por una decisión explícita con auditoría.
-- **Cierre en lote**: hoy se cierra un período por vez.
+- **Cierre programado**: el cierre es manual (individual o en lote); no hay job automático de fin de mes.
+- **Rate limiting distribuido**: el estado del login vive en memoria (regla 41); con varias instancias hay que moverlo a Redis o a la base.

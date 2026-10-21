@@ -83,6 +83,13 @@ class ModalidadPago(str, Enum):
     DIFERIDO = "DIFERIDO"
 
 
+class AccionAuditoria(str, Enum):
+    """Acción registrada en el historial de cierres de período (RN-49)."""
+
+    CIERRE = "CIERRE"
+    REAPERTURA = "REAPERTURA"
+
+
 def columna_enum(py_enum: type[Enum], nombre: str) -> sa.Enum:
     return sa.Enum(
         py_enum,

@@ -37,5 +37,7 @@ class CierrePeriodo(TimestampMixin, Base):
     usuario_id: Mapped[int | None] = mapped_column(
         ForeignKey("usuario.id", ondelete="RESTRICT")
     )
+    # NULL = cerrado. Con fecha = el período fue reabierto (RN-41).
+    reabierto_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     usuario: Mapped["Usuario | None"] = relationship()

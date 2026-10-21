@@ -21,9 +21,14 @@ from app.models.usuario import Usuario
 from app.services.cierres import (
     CierreInvalido,
     PeriodoCerrado,
+    PeriodoNoCerrado,
     PeriodoYaCerrado,
+    ReaperturaInvalida,
+    auditoria_periodos,
     cerrar_periodo,
+    cerrar_periodos,
     periodos_cerrados,
+    reabrir_periodo,
 )
 from app.services.exportacion import (
     liquidacion_csv,
@@ -144,6 +149,7 @@ def _render(
             "periodo": periodo_normalizado,
             "periodo_exportacion": periodo_normalizado or _periodo_actual(),
             "periodos_cerrados": cerrados,
+            "reaperturas": auditoria_periodos(db),
             "periodo_cerrado": bool(
                 periodo_normalizado and periodo_normalizado in cerrados
             ),
@@ -353,6 +359,61 @@ def cerrar(
     mensaje = (
         f"Período {cierre.periodo} cerrado: ya no admite altas, designaciones, "
         "liquidaciones, cobros ni ajustes."
+    )
+    return RedirectResponse(
+        "/tesoreria?" + urlencode({"ok": mensaje}), status_code=303
+    )
+
+
+@router.post("/tesoreria/cierres-lote")
+def cerrar_lote(
+    request: Request,
+    db: Session = Depends(get_db),
+    periodos: str = Form(""),
+    usuario: Usuario = Depends(requiere_tesorero),
+):
+    try:
+        cierres = cerrar_periodos(
+            db, periodos=periodos, usuario_id=usuario.id
+        )
+        db.commit()
+    except PeriodoYaCerrado as exc:
+        db.rollback()
+        return _render(request, db, aviso=str(exc))
+    except CierreInvalido as exc:
+        db.rollback()
+        return _render(request, db, error=str(exc), status_code=400)
+
+    detalle = ", ".join(cierre.periodo for cierre in cierres)
+    mensaje = (
+        f"{len(cierres)} período(s) cerrado(s): {detalle}. "
+        "Ya no admiten altas, liquidaciones, cobros ni ajustes."
+    )
+    return RedirectResponse(
+        "/tesoreria?" + urlencode({"ok": mensaje}), status_code=303
+    )
+
+
+@router.post("/tesoreria/reapertura")
+def reabrir(
+    request: Request,
+    db: Session = Depends(get_db),
+    periodo: str = Form(""),
+    motivo: str = Form(""),
+    usuario: Usuario = Depends(requiere_tesorero),
+):
+    try:
+        cierre = reabrir_periodo(
+            db, periodo=periodo, motivo=motivo, usuario_id=usuario.id
+        )
+        db.commit()
+    except (ReaperturaInvalida, PeriodoNoCerrado) as exc:
+        db.rollback()
+        return _render(request, db, error=str(exc), status_code=400)
+
+    mensaje = (
+        f"Período {cierre.periodo} reabierto: vuelve a admitir altas, "
+        "liquidaciones, cobros y ajustes. La reapertura quedó auditada."
     )
     return RedirectResponse(
         "/tesoreria?" + urlencode({"ok": mensaje}), status_code=303

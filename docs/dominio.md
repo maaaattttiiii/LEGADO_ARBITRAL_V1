@@ -162,9 +162,9 @@ La contraseña **nunca** se guarda en claro: `scrypt$n$r$p$sal$hash` con sal ale
 | **RN-35** | **ABM de aranceles**: solo se cargan **nuevas vigencias**; una tarifa existente no se edita ni se borra (historial inmutable, RN-06). |
 | **RN-36** | **ABM de canchas y torneos**: alta, edición y **baja lógica** (`activo=False`). Nunca se borra físicamente un registro con historia. |
 | **RN-37** | **Exportación mensual**: `GET /tesoreria/exportar?periodo=AAAA-MM&formato=csv\|pdf` genera una fila por **designación** con *Árbitro, Legajo, Partido, Rol, Honorario, Retención (10%), Viático y Neto a Cobrar* (`neto = honorario - retención + viático`) y una fila de totales. Solo considera `HONORARIO`, `RETENCION` y `VIATICO` del período: los ajustes manuales y reintegros no forman parte de la liquidación. El CSV usa `;`, decimales con coma y BOM (`utf-8-sig`) para Excel; el PDF es A4 apaisado con membrete. |
-| **RN-38** | **Cierre de período**: `cerrar_periodo()` registra un `CierrePeriodo` único por `AAAA-MM`. Un período cerrado **no admite altas ni modificaciones**: crear partidos, asignar ternas, liquidar partidos, registrar cobros municipales ni cargar ajustes de ese mes. El cierre es definitivo (no hay reapertura desde la UI) e idempotente: intentar cerrarlo dos veces avisa sin duplicar el registro. |
+| **RN-38** | **Cierre de período**: `cerrar_periodo()` registra un `CierrePeriodo` único por `AAAA-MM`. Un período cerrado **no admite altas ni modificaciones**: crear partidos, asignar ternas, liquidar partidos, registrar cobros municipales ni cargar ajustes de ese mes. El cierre es idempotente: intentar cerrarlo dos veces avisa sin duplicar el registro. Solo una **reapertura auditada** (RN-50) lo vuelve a habilitar. |
 | **RN-39** | **El período contable es la fecha local (ART)**: `partido.periodo` se calcula con `periodo_de(partido.fecha_hora)`. Un partido del 31/10 a las 23:00 ART pertenece a octubre aunque en UTC ya sea 1 de noviembre. Los cierres y los movimientos usan esa misma definición. |
-| **RN-40** | **Correcciones retroactivas**: toda corrección de un mes cerrado se canaliza como movimiento de `AJUSTE` **en el período abierto**. No se reabre el período ni se editan movimientos históricos. |
+| **RN-40** | **Correcciones retroactivas**: por defecto toda corrección de un mes cerrado se canaliza como movimiento de `AJUSTE` **en el período abierto**; nunca se editan movimientos históricos. Si la corrección exige operar sobre el mes (por ejemplo, liquidar un partido olvidado), el tesorero **reabre** el período con motivo, corrige y vuelve a cerrarlo (RN-50). |
 | **RN-41** | El cierre **no altera** los movimientos ya registrados: solo impide operaciones nuevas (altas, liquidaciones, cobros o ajustes) con fecha/período dentro del mes cerrado. Consultar y exportar un período cerrado sigue permitido. |
 | **RN-42** | **Usuarios y credenciales**: `email` único (normalizado a minúsculas), `rol` ∈ {`TESORERO`, `ARBITRO`} y `password_hash` con **scrypt** (sal aleatoria, nunca texto plano). Un usuario `ARBITRO` **debe** estar vinculado a un `arbitro_id`; un `TESORERO` no. `activo=False` impide el acceso. |
 | **RN-43** | **Sesión**: `POST /login` valida email + contraseña y crea una cookie **firmada** (HMAC con `CABM_SECRET_KEY`), **HttpOnly**, `SameSite=Lax`, 8 horas. Solo guarda `usuario_id`, rol, nombre y `arbitro_id`; nunca la contraseña. Email inexistente, clave incorrecta o usuario inactivo → `401` con el mismo mensaje (no revela qué emails existen). `POST /logout` limpia la sesión. |
@@ -174,6 +174,7 @@ La contraseña **nunca** se guarda en claro: `scrypt$n$r$p$sal$hash` con sal ale
 | **RN-47** | **Cambio de contraseña (clave inicial)**: las cuentas nacidas del seed llevan `debe_cambiar_password=True`. Mientras la marca siga activa, cualquier ruta protegida redirige a `/cambiar-password`. Cualquier usuario autenticado cambia su clave indicando la actual, la nueva y su repetición (mínimo 8 caracteres, distinta de la actual). Guardar la nueva limpia la marca y reescribe la cookie de sesión. |
 | **RN-48** | **Fuerza bruta en el login**: se cuentan los fallos consecutivos por `(IP, email)`. Al llegar a **5 fallos dentro de 15 minutos** el par queda bloqueado **15 minutos**: el login responde `429` con `Retry-After` y no evalúa las credenciales (ni siquiera la clave correcta pasa). Un login exitoso limpia el contador. El estado vive en memoria del proceso: con varias instancias hay que moverlo a Redis o a la base. |
 | **RN-49** | **Auditoría de operaciones sensibles**: todo movimiento creado al liquidar un partido (honorario, retención, viático o reintegro por mora) y todo ajuste manual guardan el `usuario_id` de quien lo ejecutó; cada `CierrePeriodo` guarda quién lo cerró. Las FK son `ON DELETE RESTRICT` y la columna es nullable solo por compatibilidad con datos históricos previos a la auditoría. El detalle de la cuenta muestra la columna **Registró**. |
+| **RN-50** | **Reapertura y cierre en lote**: `reabrir_periodo()` exige un período **cerrado y vigente** y un **motivo de al menos 10 caracteres**; marca `CierrePeriodo.reabierto_en` (una fila por período, sin duplicar) y agrega `REAPERTURA` con motivo y usuario a `auditoria_periodo`. Desde ese momento `validar_abierto()` deja pasar las operaciones del mes; un nuevo cierre reactiva la misma fila y audita `CIERRE`. `cerrar_periodos()` acepta varios períodos separados por coma, punto y coma o espacios: valida **todos** antes de escribir (período inválido, repetido o ya cerrado → sin cambios) y es atómico. La reapertura y el cierre en lote siguen siendo exclusivos del tesorero (`POST /tesoreria/reapertura` y `POST /tesoreria/cierres-lote`). La auditoría es append-only y se muestra en el panel. |
 
 ### 4.1 Flujo de liquidación
 
@@ -238,8 +239,8 @@ Un período inválido no rompe la pantalla: se muestra el error y se listan todo
 `POST /tesoreria/cierre-periodo` con `periodo=AAAA-MM`:
 
 1. Normaliza el período; si es inválido → `400` con mensaje.
-2. Si el período ya estaba cerrado → aviso (`200`), sin duplicar el registro (RN-38).
-3. Crea el `CierrePeriodo` con `cerrado_en` en UTC.
+2. Si el período ya estaba cerrado → aviso, sin duplicar el registro ni auditar dos veces (RN-38).
+3. Crea el `CierrePeriodo` con `cerrado_en` en UTC, guarda el usuario y audita `CIERRE` en `auditoria_periodo`.
 4. Desde ese momento `validar_abierto()` bloquea (`PeriodoCerrado`):
    - `crear_partido()` (período del partido en ART, RN-39),
    - `asignar_terna()` del partido,
@@ -248,6 +249,8 @@ Un período inválido no rompe la pantalla: se muestra el error y se listan todo
    - `crear_ajuste()` con ese período.
 5. El panel muestra los cierres, marca el filtro como **Cerrado** y deshabilita los botones de liquidar y registrar cobro de los partidos congelados.
 6. Las correcciones se registran como `AJUSTE` en el período abierto (RN-40). El cierre no borra ni reescribe nada (RN-41).
+7. **Cierre en lote**: `POST /tesoreria/cierres-lote` con `periodos` (coma, punto y coma o espacios). Valida formato, duplicados y que ninguno esté ya cerrado **antes** de escribir: si algo falla no se cierra ninguno. Los cierres exitosos comparten una sola transacción y redirigen al panel.
+8. **Reapertura**: `POST /tesoreria/reapertura` con `periodo` y `motivo` (≥ 10 caracteres). Exige un cierre vigente (un período no cerrado o ya reabierto → `400`), marca `reabierto_en` y audita `REAPERTURA` con motivo y usuario (RN-50). Un nuevo cierre reutiliza la fila, limpia `reabierto_en` y audita otro `CIERRE`. El historial (últimos 10 registros) se muestra en el panel.
 
 ### 4.6 Autenticación y control de acceso
 

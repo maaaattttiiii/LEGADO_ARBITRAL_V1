@@ -276,6 +276,92 @@
         </button>
       </div>
     </form>
+
+    <hr class="my-4">
+
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h2 class="h6">Cierre en lote</h2>
+        <p class="small text-body-secondary">
+          Un período por línea o separados por coma. Si alguno ya está cerrado,
+          no se cierra ninguno.
+        </p>
+        <form method="post" action="/tesoreria/cierres-lote" class="vstack gap-2"
+              onsubmit="return confirm('¿Cerrar todos los períodos indicados?');">
+          <textarea class="form-control font-monospace" name="periodos" rows="3"
+                    placeholder="2026-01&#10;2026-02" required></textarea>
+          <div>
+            <button type="submit" class="btn btn-outline-dark btn-sm">
+              <i class="bi bi-lock-fill me-1"></i>Cerrar períodos
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="col-lg-6">
+        <h2 class="h6">Reabrir un período</h2>
+        {% if periodos_cerrados %}
+        <p class="small text-body-secondary">
+          La reapertura queda auditada con motivo, usuario y fecha.
+        </p>
+        <form method="post" action="/tesoreria/reapertura" class="vstack gap-2"
+              onsubmit="return confirm('¿Reabrir el período? El sistema volverá a admitir cambios en ese mes.');">
+          <select class="form-select" name="periodo" required
+                  aria-label="Período a reabrir">
+            {% for cerrado in periodos_cerrados %}
+            <option value="{{ cerrado }}">{{ cerrado }}</option>
+            {% endfor %}
+          </select>
+          <textarea class="form-control" name="motivo" rows="2"
+                    minlength="10" maxlength="500" required
+                    placeholder="Motivo de la reapertura (obligatorio, mínimo 10 caracteres)"></textarea>
+          <div>
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+              <i class="bi bi-unlock me-1"></i>Reabrir período
+            </button>
+          </div>
+        </form>
+        {% else %}
+        <p class="small text-body-secondary mb-0">
+          No hay períodos cerrados para reabrir.
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if reaperturas %}
+    <hr class="my-4">
+    <h2 class="h6">Historial de cierres y reaperturas</h2>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th scope="col">Fecha</th>
+            <th scope="col">Período</th>
+            <th scope="col">Acción</th>
+            <th scope="col">Motivo</th>
+            <th scope="col">Usuario</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for registro in reaperturas %}
+          <tr>
+            <td class="text-nowrap small">{{ registro.creado_en|fecha_local }}</td>
+            <td class="font-monospace small">{{ registro.periodo }}</td>
+            <td>
+              <span class="badge text-bg-{{ 'warning' if registro.accion.value == 'REAPERTURA' else 'dark' }}">
+                {{ registro.accion.value|capitalize }}
+              </span>
+            </td>
+            <td class="small">{{ registro.motivo or '—' }}</td>
+            <td class="small text-body-secondary">
+              {{ registro.usuario.email if registro.usuario else '—' }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
   </div>
 </div>
 
