@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.limiter import LimitadorLogin
 from app.routes import (
     arbitros,
     auth,
@@ -27,6 +28,7 @@ from app.seguridad import (
 from app.templating import templates
 
 app = FastAPI(title="CABM - Colegio de Árbitros", version="0.1.0")
+app.state.limiter = LimitadorLogin()
 
 app.add_middleware(
     SessionMiddleware,

@@ -144,6 +144,7 @@ LegadoArbitral/            # raíz del repositorio
 38. **Aislamiento del portal (RN-45)**: `/mis-partidos` y `/mi-cuenta` filtran por `usuario.arbitro_id`; **jamás** aceptar un `arbitro_id` por query/URL. El login revalida el usuario contra la base en cada request (`usuario_actual()`), así que desactivarlo corta la sesión (RN-46).
 39. **Credenciales iniciales del seed** (desarrollo): `tesorero@cabm.org.ar` / `cabm2026`; cada árbitro sin usuario recibe `<email o legajo>@cabm.org.ar` / `arbitro123`. Cambiarlas antes de producción.
 40. **Cambio de clave inicial (RN-47)**: `debe_cambiar_password=True` en toda cuenta sembrada; las guardas redirigen a `/cambiar-password` hasta que la cambie (`CambioPasswordRequerido` → 303). El cambio exige la clave actual, mínimo 8 caracteres y una clave distinta; jamás se loguea. Al guardar se limpia la marca en la base y en la sesión.
+41. **Rate limiting del login (RN-48)**: `app/limiter.py` (`LimitadorLogin`) bloquea el par `(IP, email)` 15 minutos tras 5 fallos en 15 minutos. `POST /login` consulta el bloqueo **antes** de autenticar y responde `429` con `Retry-After`; el login exitoso limpia el contador. Es estado en memoria: una sola instancia (con varias, Redis/base).
 
 ## 5. Máquinas de estado
 

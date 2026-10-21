@@ -12,6 +12,16 @@ from app.seguridad import hash_password
 CLAVE_TESORERO = "tesorero-secreto-123"
 
 
+@pytest.fixture(autouse=True)
+def _limiter_limpio():
+    """Cada test arranca con un limitador de login vacío (aislamiento)."""
+    from app.limiter import LimitadorLogin
+    from app.main import app
+
+    app.state.limiter = LimitadorLogin()
+    yield
+
+
 @pytest.fixture()
 def db_session():
     engine = create_engine(

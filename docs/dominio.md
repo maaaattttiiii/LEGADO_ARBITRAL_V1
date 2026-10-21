@@ -172,6 +172,7 @@ La contraseña **nunca** se guarda en claro: `scrypt$n$r$p$sal$hash` con sal ale
 | **RN-45** | **Aislamiento del portal**: `/mis-partidos` y `/mi-cuenta` filtran **siempre** por el `arbitro_id` del usuario autenticado; se ignora cualquier id que venga en la URL o query. Un árbitro no puede ver ni inferir datos de otro. |
 | **RN-46** | **Revocación**: `usuario_actual()` revalida contra la base en cada request. Si el usuario fue desactivado o eliminado, la sesión se limpia y la próxima petición vuelve a pedir login. |
 | **RN-47** | **Cambio de contraseña (clave inicial)**: las cuentas nacidas del seed llevan `debe_cambiar_password=True`. Mientras la marca siga activa, cualquier ruta protegida redirige a `/cambiar-password`. Cualquier usuario autenticado cambia su clave indicando la actual, la nueva y su repetición (mínimo 8 caracteres, distinta de la actual). Guardar la nueva limpia la marca y reescribe la cookie de sesión. |
+| **RN-48** | **Fuerza bruta en el login**: se cuentan los fallos consecutivos por `(IP, email)`. Al llegar a **5 fallos dentro de 15 minutos** el par queda bloqueado **15 minutos**: el login responde `429` con `Retry-After` y no evalúa las credenciales (ni siquiera la clave correcta pasa). Un login exitoso limpia el contador. El estado vive en memoria del proceso: con varias instancias hay que moverlo a Redis o a la base. |
 
 ### 4.1 Flujo de liquidación
 
@@ -257,6 +258,7 @@ Un período inválido no rompe la pantalla: se muestra el error y se listan todo
 4. Las guardas son dependencias FastAPI: `requiere_tesorero` y `requiere_arbitro`. `NoAutenticado` se traduce en `303` al login conservando la ruta pedida; `AccesoDenegado` se traduce en `403`.
 5. El portal del árbitro nunca recibe un `arbitro_id` por parámetro: lo toma del usuario autenticado (RN-45).
 6. Si `usuario.debe_cambiar_password` es verdadero, las guardas de rol lanzan `CambioPasswordRequerido` (303 a `/cambiar-password`) y el login también redirige allí. El formulario pide actual + nueva + repetición, valida con `cambiar_password()` y, al guardar, limpia la marca en la base y en la sesión (RN-47).
+7. Antes de verificar credenciales, `POST /login` consulta `LimitadorLogin` (RN-48): si el par IP/email está bloqueado responde `429` con `Retry-After`. Los fallos se acumulan por ventana de 15 minutos y un login válido reinicia el contador.
 
 ## 5. Estados
 

@@ -1,8 +1,11 @@
+import math
+
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.limiter import LimitadorLogin
 from app.models.enums import RolUsuario
 from app.models.usuario import Usuario
 from app.seguridad import (
@@ -18,6 +21,22 @@ from app.templating import templates
 router = APIRouter()
 
 
+def _limitador(request: Request) -> LimitadorLogin:
+    limitador = getattr(request.app.state, "limiter", None)
+    if limitador is None:
+        limitador = request.app.state.limiter = LimitadorLogin()
+    return limitador
+
+
+def _ip(request: Request) -> str:
+    return request.client.host if request.client else "desconocida"
+
+
+def _espera(segundos: int) -> str:
+    minutos = max(1, math.ceil(segundos / 60))
+    return f"{minutos} minuto{'s' if minutos != 1 else ''}"
+
+
 def _login(
     request: Request,
     *,
@@ -25,6 +44,7 @@ def _login(
     siguiente: str = "",
     error: str | None = None,
     status_code: int = 200,
+    headers: dict[str, str] | None = None,
 ) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
@@ -36,6 +56,7 @@ def _login(
             "error": error,
         },
         status_code=status_code,
+        headers=headers,
     )
 
 
@@ -81,15 +102,43 @@ def ingresar(
     password: str = Form(""),
     siguiente: str = Form("", alias="next"),
 ):
-    usuario = autenticar(db, email=email, password=password)
-    if usuario is None:
+    limitador = _limitador(request)
+    ip = _ip(request)
+    restante = limitador.segundos_bloqueado(ip, email)
+    if restante:
         return _login(
             request,
             email=email.strip(),
             siguiente=siguiente,
-            error="Email o contraseña incorrectos.",
-            status_code=401,
+            error=(
+                "Demasiados intentos fallidos. "
+                f"Probá de nuevo en {_espera(restante)}."
+            ),
+            status_code=429,
+            headers={"Retry-After": str(restante)},
         )
+
+    usuario = autenticar(db, email=email, password=password)
+    if usuario is None:
+        restante = limitador.registrar_fallo(ip, email)
+        mensaje = "Email o contraseña incorrectos."
+        headers = None
+        if restante:
+            mensaje = (
+                "Demasiados intentos fallidos. "
+                f"Probá de nuevo en {_espera(restante)}."
+            )
+            headers = {"Retry-After": str(restante)}
+        return _login(
+            request,
+            email=email.strip(),
+            siguiente=siguiente,
+            error=mensaje,
+            status_code=429 if restante else 401,
+            headers=headers,
+        )
+
+    limitador.registrar_exito(ip, email)
 
     iniciar_sesion(request, usuario)
     if usuario.debe_cambiar_password:
