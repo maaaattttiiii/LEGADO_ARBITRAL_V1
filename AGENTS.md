@@ -18,7 +18,7 @@
 ## 2. Estructura
 
 ```
-CABM/
+LegadoArbitral/            # raíz del repositorio
 ├── app/
 │   ├── main.py              # instancia FastAPI + include_router
 │   ├── templating.py        # Jinja2Templates (rutas absolutas)
