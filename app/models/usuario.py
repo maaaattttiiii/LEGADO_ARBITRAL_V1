@@ -39,5 +39,10 @@ class Usuario(TimestampMixin, Base):
     activo: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default=text("true"), nullable=False
     )
+    # Las claves iniciales del seed nacen con True: el sistema obliga a
+    # cambiarlas antes de operar (RN-47).
+    debe_cambiar_password: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
 
     arbitro: Mapped["Arbitro | None"] = relationship()

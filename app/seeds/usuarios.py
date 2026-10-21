@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Arbitro, EstadoArbitro, RolUsuario, Usuario
+from app.seguridad import verificar_password
 from app.services.usuarios import UsuarioInvalido, crear_usuario
 
 TESORERO_EMAIL = "tesorero@cabm.org.ar"
@@ -41,13 +42,25 @@ def _email_de_arbitro(arbitro: Arbitro) -> str:
     return f"{arbitro.legajo.strip().lower()}@cabm.org.ar"
 
 
+def _marcar_clave_inicial(
+    session: Session, usuario: Usuario | None, clave: str
+) -> None:
+    """Si la cuenta sigue con la clave por defecto, exige cambiarla (RN-47)."""
+    if usuario is not None and verificar_password(clave, usuario.password_hash):
+        usuario.debe_cambiar_password = True
+
+
 def sembrar_usuarios(session: Session) -> ReporteUsuarios:
     """Carga las cuentas iniciales. Solo hace ``flush``; el commit es del llamador."""
     arbitros_creados = omitidos = 0
     advertencias: list[str] = []
 
     tesorero_creado = False
-    if _existe_email(session, TESORERO_EMAIL):
+    existente = session.execute(
+        select(Usuario).where(func.lower(Usuario.email) == TESORERO_EMAIL.lower())
+    ).scalar_one_or_none()
+    if existente is not None:
+        _marcar_clave_inicial(session, existente, TESORERO_PASSWORD)
         omitidos += 1
     else:
         crear_usuario(
@@ -55,6 +68,7 @@ def sembrar_usuarios(session: Session) -> ReporteUsuarios:
             email=TESORERO_EMAIL,
             password=TESORERO_PASSWORD,
             rol=RolUsuario.TESORERO,
+            debe_cambiar_password=True,
         )
         tesorero_creado = True
 
@@ -62,10 +76,11 @@ def sembrar_usuarios(session: Session) -> ReporteUsuarios:
         session.execute(select(Arbitro).order_by(Arbitro.id)).scalars().all()
     )
     for arbitro in arbitros:
-        ya_tiene = session.execute(
-            select(Usuario.id).where(Usuario.arbitro_id == arbitro.id)
+        usuario_existente = session.execute(
+            select(Usuario).where(Usuario.arbitro_id == arbitro.id)
         ).scalar_one_or_none()
-        if ya_tiene is not None:
+        if usuario_existente is not None:
+            _marcar_clave_inicial(session, usuario_existente, ARBITRO_PASSWORD)
             omitidos += 1
             continue
 
@@ -86,6 +101,7 @@ def sembrar_usuarios(session: Session) -> ReporteUsuarios:
                 rol=RolUsuario.ARBITRO,
                 arbitro_id=arbitro.id,
                 activo=arbitro.estado is EstadoArbitro.ACTIVO,
+                debe_cambiar_password=True,
             )
         except UsuarioInvalido as exc:
             advertencias.append(

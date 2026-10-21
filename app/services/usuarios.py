@@ -19,6 +19,10 @@ class UsuarioInvalido(ValueError):
     """Los datos del usuario no cumplen las reglas del dominio."""
 
 
+class ClaveActualIncorrecta(UsuarioInvalido):
+    """La contraseña actual no coincide con la guardada."""
+
+
 def normalizar_email(valor: str | None) -> str:
     email = (valor or "").strip().lower()
     if not _EMAIL.match(email):
@@ -60,6 +64,7 @@ def crear_usuario(
     rol: str | RolUsuario,
     arbitro_id: int | None = None,
     activo: bool = True,
+    debe_cambiar_password: bool = False,
 ) -> Usuario:
     """Crea un usuario. Solo hace ``flush``; el commit es del llamador."""
     email_normalizado = normalizar_email(email)
@@ -96,8 +101,39 @@ def crear_usuario(
         rol=rol_usuario,
         arbitro_id=arbitro_id,
         activo=activo,
+        debe_cambiar_password=debe_cambiar_password,
     )
     session.add(usuario)
+    session.flush()
+    return usuario
+
+
+def cambiar_password(
+    session: Session,
+    usuario: Usuario,
+    *,
+    actual: str | None,
+    nueva: str | None,
+    repetir: str | None,
+) -> Usuario:
+    """Cambia la contraseña de un usuario autenticado (RN-47).
+
+    Exige la clave actual, valida la nueva y limpia la marca de clave inicial.
+    Solo hace ``flush``; el commit es del llamador (regla 13).
+    """
+    if not verificar_password(actual or "", usuario.password_hash):
+        raise ClaveActualIncorrecta("La contraseña actual no es correcta.")
+
+    clave = _validar_clave(nueva)
+    if clave != (repetir or ""):
+        raise UsuarioInvalido("La nueva contraseña y su repetición no coinciden.")
+    if verificar_password(clave, usuario.password_hash):
+        raise UsuarioInvalido(
+            "La nueva contraseña debe ser distinta de la actual."
+        )
+
+    usuario.password_hash = hash_password(clave)
+    usuario.debe_cambiar_password = False
     session.flush()
     return usuario
 

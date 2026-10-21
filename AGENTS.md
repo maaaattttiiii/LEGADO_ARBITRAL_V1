@@ -143,6 +143,7 @@ LegadoArbitral/            # raíz del repositorio
 37. **Guardas (RN-44)**: `APIRouter(dependencies=[Depends(requiere_tesorero)])` en arbitros, partidos, designaciones, tesorería, canchas, torneos y tarifas; `Depends(requiere_arbitro)` en el portal. Sin sesión → `NoAutenticado` (303 a `/login?next=`); rol incorrecto → `AccesoDenegado` (403). Nunca resolver permisos a mano en la ruta.
 38. **Aislamiento del portal (RN-45)**: `/mis-partidos` y `/mi-cuenta` filtran por `usuario.arbitro_id`; **jamás** aceptar un `arbitro_id` por query/URL. El login revalida el usuario contra la base en cada request (`usuario_actual()`), así que desactivarlo corta la sesión (RN-46).
 39. **Credenciales iniciales del seed** (desarrollo): `tesorero@cabm.org.ar` / `cabm2026`; cada árbitro sin usuario recibe `<email o legajo>@cabm.org.ar` / `arbitro123`. Cambiarlas antes de producción.
+40. **Cambio de clave inicial (RN-47)**: `debe_cambiar_password=True` en toda cuenta sembrada; las guardas redirigen a `/cambiar-password` hasta que la cambie (`CambioPasswordRequerido` → 303). El cambio exige la clave actual, mínimo 8 caracteres y una clave distinta; jamás se loguea. Al guardar se limpia la marca en la base y en la sesión.
 
 ## 5. Máquinas de estado
 

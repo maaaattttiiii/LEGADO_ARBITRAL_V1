@@ -52,6 +52,10 @@ class AccesoDenegado(Exception):
     """Hay sesión, pero el rol no habilita la ruta solicitada."""
 
 
+class CambioPasswordRequerido(Exception):
+    """La cuenta sigue usando la clave inicial y debe cambiarla (RN-47)."""
+
+
 def _b64(valor: bytes) -> str:
     return base64.b64encode(valor).decode("ascii")
 
@@ -140,6 +144,7 @@ def iniciar_sesion(request: Request, usuario: Usuario) -> None:
             "rol": usuario.rol.value,
             "nombre": nombre,
             "arbitro_id": usuario.arbitro_id,
+            "debe_cambiar_password": usuario.debe_cambiar_password,
         }
     )
 
@@ -162,7 +167,24 @@ def usuario_actual(
     if usuario is None or not usuario.activo:
         request.session.clear()
         return None
+    # La base es la fuente de verdad: si el admin restableció la clave, la
+    # sesión en curso también queda obligada a cambiarla.
+    request.session["debe_cambiar_password"] = usuario.debe_cambiar_password
     return usuario
+
+
+def requiere_usuario(
+    usuario: Usuario | None = Depends(usuario_actual),
+) -> Usuario:
+    """Cualquier sesión válida, incluso con cambio de clave pendiente."""
+    if usuario is None:
+        raise NoAutenticado()
+    return usuario
+
+
+def _exigir_clave_actualizada(usuario: Usuario) -> None:
+    if usuario.debe_cambiar_password:
+        raise CambioPasswordRequerido()
 
 
 def requiere_tesorero(
@@ -172,6 +194,7 @@ def requiere_tesorero(
         raise NoAutenticado()
     if usuario.rol is not RolUsuario.TESORERO:
         raise AccesoDenegado("Esta sección es solo para el tesorero.")
+    _exigir_clave_actualizada(usuario)
     return usuario
 
 
@@ -182,4 +205,5 @@ def requiere_arbitro(
         raise NoAutenticado()
     if usuario.rol is not RolUsuario.ARBITRO or usuario.arbitro_id is None:
         raise AccesoDenegado("Esta sección es solo para árbitros.")
+    _exigir_clave_actualizada(usuario)
     return usuario

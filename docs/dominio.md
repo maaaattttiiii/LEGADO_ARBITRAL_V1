@@ -171,6 +171,7 @@ La contraseña **nunca** se guarda en claro: `scrypt$n$r$p$sal$hash` con sal ale
 | **RN-44** | **Guardas por rol**: sin sesión válida → `303` a `/login?next=<ruta>`; con sesión pero rol incorrecto → `403`. Son del **tesorero**: `/arbitros`, `/partidos`, `/designaciones`, `/tesoreria` (incluye exportar y cierre), `/canchas`, `/torneos` y `/tarifas`. Son del **árbitro**: `/mis-partidos` y `/mi-cuenta`. |
 | **RN-45** | **Aislamiento del portal**: `/mis-partidos` y `/mi-cuenta` filtran **siempre** por el `arbitro_id` del usuario autenticado; se ignora cualquier id que venga en la URL o query. Un árbitro no puede ver ni inferir datos de otro. |
 | **RN-46** | **Revocación**: `usuario_actual()` revalida contra la base en cada request. Si el usuario fue desactivado o eliminado, la sesión se limpia y la próxima petición vuelve a pedir login. |
+| **RN-47** | **Cambio de contraseña (clave inicial)**: las cuentas nacidas del seed llevan `debe_cambiar_password=True`. Mientras la marca siga activa, cualquier ruta protegida redirige a `/cambiar-password`. Cualquier usuario autenticado cambia su clave indicando la actual, la nueva y su repetición (mínimo 8 caracteres, distinta de la actual). Guardar la nueva limpia la marca y reescribe la cookie de sesión. |
 
 ### 4.1 Flujo de liquidación
 
@@ -255,6 +256,7 @@ Un período inválido no rompe la pantalla: se muestra el error y se listan todo
 3. `/logout` limpia la sesión y redirige a `/login`.
 4. Las guardas son dependencias FastAPI: `requiere_tesorero` y `requiere_arbitro`. `NoAutenticado` se traduce en `303` al login conservando la ruta pedida; `AccesoDenegado` se traduce en `403`.
 5. El portal del árbitro nunca recibe un `arbitro_id` por parámetro: lo toma del usuario autenticado (RN-45).
+6. Si `usuario.debe_cambiar_password` es verdadero, las guardas de rol lanzan `CambioPasswordRequerido` (303 a `/cambiar-password`) y el login también redirige allí. El formulario pide actual + nueva + repetición, valida con `cambiar_password()` y, al guardar, limpia la marca en la base y en la sesión (RN-47).
 
 ## 5. Estados
 

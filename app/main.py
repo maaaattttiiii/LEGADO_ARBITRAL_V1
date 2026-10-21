@@ -21,6 +21,7 @@ from app.seguridad import (
     SESSION_MAX_AGE,
     SESSION_SECRET,
     AccesoDenegado,
+    CambioPasswordRequerido,
     NoAutenticado,
 )
 from app.templating import templates
@@ -67,3 +68,10 @@ async def _prohibido(request: Request, exc: AccesoDenegado) -> HTMLResponse:
         {"seccion": None, "error": str(exc)},
         status_code=403,
     )
+
+
+@app.exception_handler(CambioPasswordRequerido)
+async def _cambio_pendiente(
+    request: Request, exc: CambioPasswordRequerido
+) -> RedirectResponse:
+    return RedirectResponse("/cambiar-password", status_code=303)
