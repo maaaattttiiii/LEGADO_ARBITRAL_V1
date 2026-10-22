@@ -1,0 +1,86 @@
+{% from "componentes/iconos.html" import icono %}
+{% from "componentes/modal.html" import modal %}
+{% set partido = fila.partido %}
+{% set error_partido = error and form.get('partido_id') == partido.id|string %}
+{% set auto_actual = fila.auto.rol.value if fila.auto else '' %}
+{% set auto_seleccionado = (form.get('auto_rol', '') if error_partido else auto_actual) %}
+{% call modal("modalTerna" ~ partido.id, "modalTernaTitulo" ~ partido.id, "Terna · " ~ partido.equipo_local ~ " vs " ~ partido.equipo_visitante, abrir=error_partido) %}
+<form method="post" action="/designaciones"
+      hx-post="/designaciones"
+      hx-target="#listado-designaciones"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find button[type='submit']">
+  <input type="hidden" name="partido_id" value="{{ partido.id }}">
+  <div class="cabm-modal__cuerpo">
+    {% if error_partido %}
+    <div class="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">{{ error }}</div>
+    {% endif %}
+    <p class="mb-4 text-xs text-slate-500">
+      {{ partido.fecha_hora|fecha_local }} · {{ partido.torneo.nombre }}
+    </p>
+    {% if fila.es_u11 %}
+    <div class="mb-4 flex items-start gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+      {{ icono("informacion") }}
+      <div>
+        Partido U11: máximo 2 árbitros. Con uno se cobra la tarifa U11;
+        con dos, la tarifa U11_DOBLE se reparte en partes iguales.
+      </div>
+    </div>
+    {% endif %}
+    {% for rol, etiqueta in fila.roles %}
+    {% if error_partido %}
+      {% set seleccionado = form.get('principal_id' if rol.value == 'PRINCIPAL'
+        else 'asistente_1_id' if rol.value == 'ASISTENTE_1'
+        else 'asistente_2_id' if rol.value == 'ASISTENTE_2' else 'cuarto_id') %}
+    {% else %}
+      {% set seleccionado = (fila.terna.get(rol).arbitro_id|string) if fila.terna.get(rol) else '' %}
+    {% endif %}
+    <div class="mb-3">
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="rol-{{ rol.value }}-{{ partido.id }}">
+        {{ etiqueta }}
+        {% if rol.value == 'PRINCIPAL' %}<span class="text-rose-600">*</span>{% endif %}
+      </label>
+      <select class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="rol-{{ rol.value }}-{{ partido.id }}" name="{{ rol.value|lower }}_id">
+        <option value="">— Sin asignar —</option>
+        {% for arbitro in arbitros %}
+        <option value="{{ arbitro.id }}"
+                {% if seleccionado == arbitro.id|string %}selected{% endif %}
+                {% if arbitro.tiene_auto %}data-tiene-auto="si"{% endif %}>
+          {{ arbitro.apellido }}, {{ arbitro.nombre }}{% if arbitro.tiene_auto %} (auto){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endfor %}
+
+    <fieldset class="mt-3 rounded-md border border-slate-300 p-3">
+      <legend class="px-1 text-sm font-semibold text-slate-700">¿Quién usa su vehículo?</legend>
+      <div class="mt-2 flex items-center gap-2">
+        <input class="h-4 w-4 border-slate-300 text-sky-600 focus:ring-sky-500" type="radio" name="auto_rol" value=""
+               id="auto-ninguno-{{ partido.id }}"
+               {% if not auto_seleccionado %}checked{% endif %}>
+        <label class="text-sm text-slate-700" for="auto-ninguno-{{ partido.id }}">
+          Ninguno (sin viático)
+        </label>
+      </div>
+      {% for rol, etiqueta in fila.roles %}
+      <div class="mt-2 flex items-center gap-2">
+        <input class="h-4 w-4 border-slate-300 text-sky-600 focus:ring-sky-500" type="radio" name="auto_rol" value="{{ rol.value }}"
+               id="auto-{{ rol.value }}-{{ partido.id }}"
+               {% if auto_seleccionado == rol.value %}checked{% endif %}>
+        <label class="text-sm text-slate-700" for="auto-{{ rol.value }}-{{ partido.id }}">
+          {{ etiqueta }}
+        </label>
+      </div>
+      {% endfor %}
+      <p class="mt-2 text-xs text-slate-500">
+        El viático se calcula por los litros de la cancha según la localidad.
+      </p>
+    </fieldset>
+  </div>
+  <div class="cabm-modal__pie">
+    <button type="button" class="inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50" @click="cerrar()">Cancelar</button>
+    <button type="submit" class="inline-flex items-center justify-center gap-1 rounded-md bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700">Guardar terna</button>
+  </div>
+</form>
+{% endcall %}

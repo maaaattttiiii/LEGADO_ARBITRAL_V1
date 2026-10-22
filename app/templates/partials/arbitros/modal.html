@@ -10,6 +10,9 @@
       hx-swap="outerHTML"
       hx-disabled-elt="find button[type='submit']">
   <div class="cabm-modal__cuerpo">
+    {% if error %}
+    <div class="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">{{ error }}</div>
+    {% endif %}
     <div class="grid gap-4 sm:grid-cols-2">
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-700" for="legajo">Legajo <span class="text-rose-600">*</span></label>

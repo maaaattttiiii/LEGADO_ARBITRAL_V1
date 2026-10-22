@@ -92,14 +92,18 @@ def _cambio(
 def formulario(request: Request, siguiente: str = Query("", alias="next")):
     rol = request.session.get("rol")
     if rol:
+        destino = None
         if request.session.get("debe_cambiar_password"):
-            return RedirectResponse("/cambiar-password", status_code=303)
-        try:
-            return RedirectResponse(
-                inicio_para_rol(RolUsuario(rol)), status_code=303
-            )
-        except ValueError:
-            pass
+            destino = "/cambiar-password"
+        else:
+            try:
+                destino = inicio_para_rol(RolUsuario(rol))
+            except ValueError:
+                pass
+        if destino:
+            if es_htmx(request):
+                return redireccion_htmx(destino)
+            return RedirectResponse(destino, status_code=303)
     return _login(request, siguiente=siguiente)
 
 

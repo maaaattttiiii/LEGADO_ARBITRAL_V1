@@ -8,13 +8,16 @@
 document.documentElement.classList.add("js");
 
 /*
- * HTMX no intercambia respuestas 4xx por defecto. El contrato de la Fase 4
- * devuelve 400 con el fragmento del formulario y cabeceras ``HX-Retarget`` /
- * ``HX-Reswap``; se habilita el swap sólo para ese código.
+ * HTMX no intercambia respuestas 4xx por defecto. El contrato de la interfaz
+ * devuelve fragmentos con 400 (validación), 401/429 (login) y 403 (guardas)
+ * más cabeceras ``HX-Retarget`` / ``HX-Reswap`` cuando corresponde; se
+ * habilita el swap para esos códigos sin alterar el status HTTP.
  */
+const ESTADOS_CON_SWAP = new Set([400, 401, 403, 404, 429]);
+
 document.addEventListener("htmx:beforeSwap", (evento) => {
   const detalle = evento.detail || {};
-  if (detalle.xhr && detalle.xhr.status === 400) {
+  if (detalle.xhr && ESTADOS_CON_SWAP.has(detalle.xhr.status)) {
     detalle.shouldSwap = true;
     detalle.isError = false;
   }

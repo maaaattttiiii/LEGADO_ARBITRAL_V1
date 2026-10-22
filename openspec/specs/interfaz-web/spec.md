@@ -79,7 +79,7 @@ Ref: RNF-UI-3; RN-19.
 
 - **WHEN** se envía el mismo formulario con `HX-Request: true`
 - **THEN** la respuesta es un fragmento HTML sin `<html>`, `<head>` ni `<body>`, o una redirección mediante `HX-Redirect`
-- **THEN** el código de estado conserva el significado del flujo clásico (200, 400, 401, 403 o 429)
+- **THEN** el código de estado conserva el significado del flujo clásico (200, 400, 401, 403, 404 o 429)
 
 #### Scenario: Login sin JavaScript
 
@@ -88,7 +88,7 @@ Ref: RNF-UI-3; RN-19.
 
 ### Requirement: Formularios HTMX sin recarga
 
-Los formularios de login, alta y edición de árbitros, alta de partidos y acciones de liquidación SHALL usar HTMX para actualizar solo la región afectada, sin recarga completa. El servidor MUST aplicar las mismas validaciones y la misma idempotencia que el flujo clásico, y MUST NOT duplicar movimientos ante reintentos. El control de envío SHALL deshabilitarse mientras la petición está en curso.
+Los formularios de login, alta y edición de árbitros, alta de partidos, asignación de ternas y acciones de liquidación SHALL usar HTMX para actualizar solo la región afectada, sin recarga completa. El servidor MUST aplicar las mismas validaciones y la misma idempotencia que el flujo clásico, y MUST NOT duplicar movimientos ante reintentos. El control de envío SHALL deshabilitarse mientras la petición está en curso.
 
 Ref: RNF-UI-4; RN-19.
 
@@ -104,6 +104,19 @@ Ref: RNF-UI-4; RN-19.
 - **THEN** la respuesta es 400 con el fragmento del formulario
 - **THEN** los valores ingresados se conservan y el mensaje de error es visible dentro del formulario
 
+#### Scenario: Asignación de terna con HTMX
+
+- **WHEN** se guarda una terna válida con `HX-Request: true`
+- **THEN** la respuesta es 200 con el fragmento `#listado-designaciones` y un evento de éxito
+- **WHEN** la terna es inválida
+- **THEN** la respuesta es 400 con el modal `#modalTerna<id>`, los valores conservados y el mensaje visible
+- **THEN** el modal reabre con el rol de auto que ya estaba asignado
+
+#### Scenario: Edición de un registro con HTMX
+
+- **WHEN** se envía una edición inválida con `HX-Request: true`
+- **THEN** el fragmento corresponde al modal del registro editado y no a otro registro del listado
+
 #### Scenario: Liquidación idempotente con HTMX
 
 - **WHEN** se envía dos veces la liquidación del mismo partido con `HX-Request: true`
@@ -118,7 +131,7 @@ Ref: RNF-UI-4; RN-19.
 
 ### Requirement: Contrato de fragmentos y encabezados
 
-Las respuestas parciales MUST reutilizar las mismas plantillas parciales incluidas por la página completa, MUST declarar `Vary: HX-Request` y MUST NOT contener `<html>`, `<head>` ni `<body>`. Los eventos de interfaz SHALL viajar en `HX-Trigger` como JSON y las redirecciones SHALL usar `HX-Redirect`. Los códigos 400/401/403/429 y la cabecera `Retry-After` MUST conservarse.
+Las respuestas parciales MUST reutilizar las mismas plantillas parciales incluidas por la página completa, MUST declarar `Vary: HX-Request` y MUST NOT contener `<html>`, `<head>` ni `<body>`. Los eventos de interfaz SHALL viajar en `HX-Trigger` como JSON y las redirecciones SHALL usar `HX-Redirect`. Los códigos 400/401/403/404/429 y la cabecera `Retry-After` MUST conservarse. Un 404 HTMX MUST devolver el parcial de la región con un toast de error.
 
 Ref: RNF-UI-5; RN-48.
 
@@ -145,6 +158,27 @@ Ref: RNF-UI-5; RN-48.
 
 - **WHEN** una petición HTMX llega sin sesión válida
 - **THEN** la respuesta usa `HX-Redirect` hacia `/login?next=...` y no entrega una página completa para incrustar en la región
+
+#### Scenario: Login con sesión vigente
+
+- **WHEN** `GET /login` recibe `HX-Request: true` con una sesión válida
+- **THEN** la respuesta es 204 con `HX-Redirect` al inicio del rol o a `/cambiar-password`
+- **WHEN** la misma petición llega sin `HX-Request`
+- **THEN** la respuesta es 303 al mismo destino
+
+#### Scenario: Swap de errores 4xx
+
+- **WHEN** una respuesta HTMX conserva 400, 401, 403, 404 o 429
+- **THEN** el navegador intercambia el fragmento y muestra el modal, el panel o el mensaje de error
+- **THEN** el código HTTP y `Retry-After` no se alteran
+
+#### Scenario: Recurso inexistente con HTMX
+
+- **WHEN** se liquida un partido, se edita una cancha/torneo o se cambia su estado con un id inexistente y `HX-Request: true`
+- **THEN** la respuesta conserva el `404` y devuelve el parcial del listado de la región (`#partidos-a-liquidar`, `#listado-canchas` o `#listado-torneos`)
+- **THEN** el fragmento incluye `Vary: HX-Request` y `HX-Trigger` con un toast de error
+- **WHEN** la misma petición llega sin `HX-Request`
+- **THEN** la respuesta sigue siendo el JSON `{"detail": ...}` original
 
 ### Requirement: Modales de confirmación accesibles
 

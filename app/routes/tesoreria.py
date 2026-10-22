@@ -89,6 +89,8 @@ def _periodo_actual() -> str:
 _PAGINA = "tesoreria/index.html"
 _PARCIAL_ACTUALIZACION = "partials/tesoreria/actualizacion.html"
 _PARCIAL_AJUSTE = "partials/tesoreria/modal_ajuste.html"
+_PARCIAL_PARTIDOS = "partials/tesoreria/partidos_a_liquidar.html"
+_NO_EXISTE_PARTIDO = "No existe el partido."
 
 
 def _contexto(
@@ -282,7 +284,16 @@ def liquidar(
 ):
     partido = db.get(Partido, partido_id)
     if partido is None:
-        raise HTTPException(status_code=404, detail="No existe el partido.")
+        if es_htmx(request):
+            return respuesta_o_fragmento(
+                request,
+                completa=_PAGINA,
+                parcial=_PARCIAL_PARTIDOS,
+                contexto=_contexto(db),
+                status_code=404,
+                trigger=toast("error", _NO_EXISTE_PARTIDO),
+            )
+        raise HTTPException(status_code=404, detail=_NO_EXISTE_PARTIDO)
 
     try:
         resultado = liquidar_partido(

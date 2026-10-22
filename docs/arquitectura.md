@@ -252,7 +252,9 @@ retirado):
     Se abre con `showModal()`, cierra con `close()`/`Escape` (`@cancel`), enfoca
     el primer campo y devuelve el foco al disparador. `data-abrir-modal="true"`
     reabre el modal de forma declarativa cuando el servidor re-renderiza un
-    formulario con error (sin `new bootstrap.Modal`).
+    formulario con error (sin `new bootstrap.Modal`). La página completa de
+    canchas y torneos también conserva `form` y `editar_error_id`, por lo que
+    el modal reabre con los valores aun sin HTMX.
   - `toasts.html`: macro `toasts()` incluido en `base.html`; contenedor
     `aria-live="polite"`, notificaciones `role="status"`, región asertiva
     `role="alert"` para errores y botón "Cerrar notificación".
@@ -290,6 +292,7 @@ retirado):
   | Canchas | `partials/canchas/listado.html` | `#listado-canchas` | `partials/canchas/modal.html` y `partials/canchas/modal_editar.html` | `#modalCancha` / `#modalEditar<id>` |
   | Torneos | `partials/torneos/listado.html` | `#listado-torneos` | `partials/torneos/modal.html` y `partials/torneos/modal_editar.html` | `#modalTorneo` / `#modalEditar<id>` |
   | Tarifas | `partials/tarifas/listado.html` | `#listado-tarifas` | `partials/tarifas/modal.html` | `#modalTarifa` |
+  | Designaciones | `partials/designaciones/listado.html` | `#listado-designaciones` | `partials/designaciones/modal_terna.html` | `#modalTerna<id>` |
 
   Los formularios de alta y edición conservan `method="post"`/`action` y suman
   `hx-post`, `hx-target="#listado-<recurso>"`, `hx-swap="outerHTML"` y
@@ -297,9 +300,17 @@ retirado):
   el parcial del listado y `HX-Trigger` con `cabm:toast` (éxito) y
   `cabm:cerrar-modal` (id del modal). En error es `400` con el parcial del
   formulario, `HX-Retarget` al modal, `HX-Reswap: outerHTML`,
-  `data-abrir-modal="true"` y `cabm:toast` de error. `app/static/js/app.js`
-  habilita el swap de `400` en `htmx:beforeSwap` y despacha
-  `cabm:abrir-modal`/`cabm:cerrar-modal`, que todos los `<dialog>` escuchan.
+  `data-abrir-modal="true"` y `cabm:toast` de error. Cada modal muestra el
+  mensaje de validación dentro del cuerpo (`role="alert"`), no solo en el
+  toast. `app/static/js/app.js` habilita el swap de `400`, `401`, `403`, `404`
+  y `429` en `htmx:beforeSwap` y despacha `cabm:abrir-modal`/`cabm:cerrar-modal`, que
+  todos los `<dialog>` escuchan. La terna guarda el auto ya asignado y lo
+  refleja al reabrir el modal; si `GET /login` llega con sesión vigente y
+  `HX-Request`, responde `204` + `HX-Redirect` en lugar de un `303` que HTMX
+  no puede seguir. Un `404` de un recurso alcanzable por HTMX (liquidar un
+  partido, editar o dar de baja una cancha/torneo) conserva el `404` y devuelve
+  el parcial de la región con `cabm:toast` de error; sin `HX-Request` mantiene
+  el JSON `{"detail": ...}` original.
 - **Tesorería y liquidaciones (Fase 5)**. Los cuatro bloques del panel son
   parciales incluidos por `tesoreria/index.html` y renderizados directamente
   por la rama HTMX, con una sola fuente de markup:

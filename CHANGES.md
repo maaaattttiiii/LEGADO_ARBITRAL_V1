@@ -5,7 +5,7 @@
 > verifica y qué queda pendiente.
 >
 > Última actualización: **2026-10-21** · Versión de producto: **V3.0**
-> Suite: **543 tests verdes** · Migración Alembic head: `d3e4f5a6b7c8`
+> Suite: **665 tests verdes** · Migración Alembic head: `d3e4f5a6b7c8`
 
 ## 1. Estado actual
 
@@ -18,7 +18,7 @@
 | Seguridad (clave inicial obligatoria, rate limiting) | ✅ V2.0 |
 | Auditoría de operaciones sensibles | ✅ V2.0 |
 | Despliegue Docker + PostgreSQL | ✅ V2.0 |
-| Tests automatizados | ✅ 543 |
+| Tests automatizados | ✅ 665 |
 | Interfaz web (Tailwind + HTMX + Alpine, accesible, sin Bootstrap) | ✅ V3.0 |
 | Documentación viva (dominio, arquitectura, specs, openspec, despliegue) | ✅ |
 
@@ -91,6 +91,14 @@ reglas de negocio ni el esquema.**
 | 4 | CRUD con HTMX por regiones | `test_htmx_crud.py` (40) |
 | 5 | Tesorería con swaps OOB | `test_htmx_tesoreria.py` (28) |
 | 6 | Retiro de Bootstrap, preflight, accesibilidad y documentación | `test_accesibilidad_ui.py` (11) |
+| 7 | Auditoría HTMX: designaciones, ediciones, errores visibles, swap de 4xx y 404 | `test_htmx_auditoria.py` (122) |
+
+La Fase 7 cierra la auditoría integral: incorpora designaciones al contrato
+HTMX, reabre el modal del registro correcto en canchas y torneos (también sin
+HTMX, conservando los valores), muestra el mensaje de validación dentro de
+todos los formularios, habilita el swap de 400/401/403/404/429 en el navegador
+y devuelve el listado de la región ante un 404 alcanzable por HTMX, sin alterar
+el JSON original cuando no hay `HX-Request`.
 
 Especificación de la entrega:
 [`docs/specs/v3_interfaz_web.md`](docs/specs/v3_interfaz_web.md).
@@ -108,7 +116,7 @@ Contrato de accesibilidad: **RNF-UI-1 a RNF-UI-8**.
 - **RNF-UI-8**: teclado, foco visible, `aria-busy`, íconos y estados no
   dependientes del color.
 
-## 3. Suite de tests vigente (543)
+## 3. Suite de tests vigente (665)
 
 | Área | Archivo(s) | Tests |
 |---|---|---|
@@ -119,8 +127,8 @@ Contrato de accesibilidad: **RNF-UI-1 a RNF-UI-8**.
 | Exportación | `test_exportacion.py` | **14** |
 | Datos iniciales | `test_seed.py` | **47** |
 | Despliegue | `test_deploy.py` | **4** |
-| Interfaz web y accesibilidad | `test_interfaz_web.py` (12), `test_ui_componentes.py` (18), `test_presentacion.py` (17), `test_htmx_auth.py` (16), `test_htmx_crud.py` (40), `test_htmx_tesoreria.py` (28), `test_accesibilidad_ui.py` (11) | **142** |
-| **Total** | 28 archivos | **543** |
+| Interfaz web y accesibilidad | `test_interfaz_web.py` (12), `test_ui_componentes.py` (18), `test_presentacion.py` (17), `test_htmx_auth.py` (16), `test_htmx_crud.py` (40), `test_htmx_tesoreria.py` (28), `test_htmx_auditoria.py` (122), `test_accesibilidad_ui.py` (11) | **264** |
+| **Total** | 29 archivos | **665** |
 
 Comando: `& C:\Python314\python.exe -m pytest -q`
 (los tests corren contra SQLite en memoria con `Base.metadata.create_all()`;

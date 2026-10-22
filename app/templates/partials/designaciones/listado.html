@@ -1,0 +1,116 @@
+{% from "componentes/iconos.html" import icono %}
+{% from "componentes/insignia.html" import insignia %}
+<div id="listado-designaciones">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Designaciones</h1>
+      <p class="mt-1 text-sm text-slate-600">
+        {{ filas|length }} partido{{ '' if filas|length == 1 else 's' }} pendiente{{ '' if filas|length == 1 else 's' }} de terna.
+      </p>
+    </div>
+  </div>
+
+  {% if error %}
+  <div class="mb-4 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">
+    {{ icono("alerta") }}
+    <div>{{ error }}</div>
+  </div>
+  {% endif %}
+
+  {% if not arbitros %}
+  <div class="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="alert">
+    {{ icono("informacion") }}
+    <div>No hay árbitros activos en el padrón. Cargá árbitros antes de asignar ternas.</div>
+  </div>
+  {% endif %}
+
+  <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse text-left text-sm">
+        <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+          <tr>
+            <th scope="col" class="px-4 py-2 font-semibold">Fecha y hora</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Partido</th>
+            <th scope="col" class="px-4 py-2 font-semibold">Terna</th>
+            <th scope="col" class="px-4 py-2 text-center font-semibold">Auto</th>
+            <th scope="col" class="px-4 py-2 text-right font-semibold">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fila in filas %}
+          {% set partido = fila.partido %}
+          <tr class="hover:bg-slate-50">
+            <td class="border-t border-slate-200 px-4 py-2 align-middle whitespace-nowrap">
+              <div class="font-monospace">{{ partido.fecha_hora|fecha_local }}</div>
+              <div class="mt-1">
+                {{ insignia(partido.estado.value|capitalize, estado_partido_clases.get(partido.estado.value, 'secondary')) }}
+              </div>
+            </td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle">
+              <div><strong>{{ partido.equipo_local }}</strong> vs {{ partido.equipo_visitante }}</div>
+              <div class="text-xs text-body-secondary">
+                {{ partido.torneo.nombre }} · {{ partido.cancha.nombre }}
+              </div>
+            </td>
+            <td class="border-t border-slate-200 px-4 py-2 align-middle">
+              <ul class="m-0 list-none p-0 text-xs">
+                {% for rol, etiqueta in fila.roles %}
+                {% set designacion = fila.terna.get(rol) %}
+                <li class="flex flex-wrap items-center gap-1 py-0.5">
+                  <span class="text-body-secondary" style="min-width: 7rem;">{{ etiqueta }}:</span>
+                  {% if designacion %}
+                    <span>{{ designacion.arbitro.apellido }}, {{ designacion.arbitro.nombre }}</span>
+                    {% if designacion.arbitro.tiene_auto %}
+                    <span class="inline-flex items-center rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[0.7rem] font-semibold text-slate-600" data-perfil-auto="si"
+                          title="Tiene vehículo propio según su perfil">auto</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="italic text-body-secondary">Sin asignar</span>
+                  {% endif %}
+                </li>
+                {% endfor %}
+                {% if fila.roles_extra %}
+                <li class="mt-1 flex items-start gap-1 text-rose-700">
+                  {{ icono("alerta") }}
+                  <span>
+                    La terna tiene árbitros de más para U11: al guardar se conservan
+                    solo los {{ fila.roles|length }} roles de arriba.
+                  </span>
+                </li>
+                {% endif %}
+              </ul>
+            </td>
+            <td class="border-t border-slate-200 px-4 py-2 text-center align-middle">
+              {% if fila.auto %}
+              <span class="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800" data-auto-terna="si"
+                    title="{{ fila.auto.arbitro.apellido }}, {{ fila.auto.arbitro.nombre }}">
+                {{ icono("auto") }} {{ fila.auto.arbitro.apellido }}
+              </span>
+              {% else %}
+              <span class="text-body-secondary">—</span>
+              {% endif %}
+            </td>
+            <td class="border-t border-slate-200 px-4 py-2 text-right align-middle">
+              <button class="inline-flex items-center justify-center gap-1 rounded-md border border-sky-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-sky-700 shadow-sm transition hover:bg-sky-50" type="button"
+                      @click="$store.modales.abrir('modalTerna{{ partido.id }}')">
+                {{ icono("personas") }}
+                {{ 'Editar terna' if fila.terna else 'Asignar terna' }}
+              </button>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="px-4 py-6 text-center text-slate-500">
+              No hay partidos pendientes de designación.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% for fila in filas %}
+  {% include "partials/designaciones/modal_terna.html" %}
+  {% endfor %}
+</div>

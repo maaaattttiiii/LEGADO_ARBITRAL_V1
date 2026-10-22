@@ -12,6 +12,9 @@
       hx-swap="outerHTML"
       hx-disabled-elt="find button[type='submit']">
   <div class="cabm-modal__cuerpo">
+    {% if error and abrir_editar %}
+    <div class="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">{{ error }}</div>
+    {% endif %}
     <div class="mb-4">
       <label class="mb-1 block text-sm font-medium text-slate-700" for="nombre{{ torneo.id }}">Nombre <span class="text-rose-600">*</span></label>
       <input type="text" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" id="nombre{{ torneo.id }}" name="nombre"

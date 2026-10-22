@@ -17,6 +17,7 @@ _PARCIAL_LISTADO = "partials/canchas/listado.html"
 _PARCIAL_ALTA = "partials/canchas/modal.html"
 _PARCIAL_EDITAR = "partials/canchas/modal_editar.html"
 _MODAL_ALTA = "modalCancha"
+_NO_EXISTE = "No existe la cancha."
 
 
 def _contexto(
@@ -50,19 +51,37 @@ def _render(
     form: dict[str, str] | None = None,
     status_code: int = 200,
     abrir_alta: bool = False,
+    editar_error_id: int | None = None,
 ) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         _PAGINA,
-        _contexto(db, error=error, form=form, abrir_alta=abrir_alta),
+        _contexto(
+            db,
+            error=error,
+            form=form,
+            abrir_alta=abrir_alta,
+            editar_error_id=editar_error_id,
+        ),
         status_code=status_code,
     )
 
 
-def _obtener(db: Session, cancha_id: int) -> Cancha:
+def _obtener(
+    request: Request, db: Session, cancha_id: int
+) -> Cancha | HTMLResponse:
     cancha = db.get(Cancha, cancha_id)
     if cancha is None:
-        raise HTTPException(status_code=404, detail="No existe la cancha.")
+        if es_htmx(request):
+            return respuesta_o_fragmento(
+                request,
+                completa=_PAGINA,
+                parcial=_PARCIAL_LISTADO,
+                contexto=_contexto(db, error=_NO_EXISTE),
+                status_code=404,
+                trigger=toast("error", _NO_EXISTE),
+            )
+        raise HTTPException(status_code=404, detail=_NO_EXISTE)
     return cancha
 
 
@@ -142,7 +161,9 @@ def editar_cancha(
     direccion: str = Form(""),
     litros_viatico: str = Form(""),
 ):
-    cancha = _obtener(db, cancha_id)
+    cancha = _obtener(request, db, cancha_id)
+    if isinstance(cancha, HTMLResponse):
+        return cancha
     form = {
         "nombre": nombre,
         "localidad": localidad,
@@ -182,7 +203,14 @@ def editar_cancha(
                 },
                 trigger=toast("error", str(exc)),
             )
-        return _render(request, db, error=str(exc), status_code=400)
+        return _render(
+            request,
+            db,
+            error=str(exc),
+            form=form,
+            status_code=400,
+            editar_error_id=cancha.id,
+        )
 
     if es_htmx(request):
         return _fragmento_listado(
@@ -199,7 +227,9 @@ def estado_cancha(
     db: Session = Depends(get_db),
     activo: str = Form(""),
 ):
-    cancha = _obtener(db, cancha_id)
+    cancha = _obtener(request, db, cancha_id)
+    if isinstance(cancha, HTMLResponse):
+        return cancha
     cambiar_estado(db, cancha, activo=activo)
     db.commit()
     if es_htmx(request):

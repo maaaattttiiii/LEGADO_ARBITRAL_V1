@@ -18,10 +18,15 @@ from app.services.designaciones import (
     admite_cuarto,
     asignar_terna,
 )
+from app.presentacion import es_htmx, respuesta_o_fragmento, toast
 from app.seguridad import requiere_tesorero
 from app.templating import templates
 
 router = APIRouter(dependencies=[Depends(requiere_tesorero)])
+
+PAGINA = "designaciones/index.html"
+PARCIAL_LISTADO = "partials/designaciones/listado.html"
+PARCIAL_MODAL = "partials/designaciones/modal_terna.html"
 
 ESTADOS_PENDIENTES = (
     EstadoPartido.PROGRAMADO,
@@ -113,14 +118,12 @@ def _filas(db: Session) -> list[dict]:
     return filas
 
 
-def _render(
-    request: Request,
+def _contexto(
     db: Session,
     *,
     error: str | None = None,
     form: dict[str, str] | None = None,
-    status_code: int = 200,
-) -> HTMLResponse:
+) -> dict:
     arbitros = (
         db.execute(
             select(Arbitro)
@@ -130,31 +133,48 @@ def _render(
         .scalars()
         .all()
     )
+    return {
+        "seccion": "designaciones",
+        "filas": _filas(db),
+        "arbitros": arbitros,
+        "rol_etiquetas": ROL_ETIQUETAS,
+        "estado_partido_clases": ESTADO_PARTIDO_CLASES,
+        "roles_auto": [
+            (RolDesignacion.PRINCIPAL, ROL_ETIQUETAS[RolDesignacion.PRINCIPAL.value]),
+            (
+                RolDesignacion.ASISTENTE_1,
+                ROL_ETIQUETAS[RolDesignacion.ASISTENTE_1.value],
+            ),
+            (
+                RolDesignacion.ASISTENTE_2,
+                ROL_ETIQUETAS[RolDesignacion.ASISTENTE_2.value],
+            ),
+            (RolDesignacion.CUARTO, ROL_ETIQUETAS[RolDesignacion.CUARTO.value]),
+        ],
+        "error": error,
+        "form": form or {},
+    }
 
+
+def _fila(db: Session, partido_id: str) -> dict | None:
+    return next(
+        (fila for fila in _filas(db) if str(fila["partido"].id) == partido_id),
+        None,
+    )
+
+
+def _render(
+    request: Request,
+    db: Session,
+    *,
+    error: str | None = None,
+    form: dict[str, str] | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
-        "designaciones/index.html",
-        {
-            "seccion": "designaciones",
-            "filas": _filas(db),
-            "arbitros": arbitros,
-            "rol_etiquetas": ROL_ETIQUETAS,
-            "estado_partido_clases": ESTADO_PARTIDO_CLASES,
-            "roles_auto": [
-                (RolDesignacion.PRINCIPAL, ROL_ETIQUETAS[RolDesignacion.PRINCIPAL.value]),
-                (
-                    RolDesignacion.ASISTENTE_1,
-                    ROL_ETIQUETAS[RolDesignacion.ASISTENTE_1.value],
-                ),
-                (
-                    RolDesignacion.ASISTENTE_2,
-                    ROL_ETIQUETAS[RolDesignacion.ASISTENTE_2.value],
-                ),
-                (RolDesignacion.CUARTO, ROL_ETIQUETAS[RolDesignacion.CUARTO.value]),
-            ],
-            "error": error,
-            "form": form or {},
-        },
+        PAGINA,
+        _contexto(db, error=error, form=form),
         status_code=status_code,
     )
 
@@ -196,6 +216,40 @@ def alta_designacion(
         db.commit()
     except (DesignacionInvalida, PeriodoCerrado) as exc:
         db.rollback()
+        if es_htmx(request):
+            fila = _fila(db, partido_id)
+            if fila is not None:
+                contexto = _contexto(db, error=str(exc), form=form)
+                contexto["fila"] = fila
+                return respuesta_o_fragmento(
+                    request,
+                    completa=PAGINA,
+                    parcial=PARCIAL_MODAL,
+                    contexto=contexto,
+                    status_code=400,
+                    headers={
+                        "HX-Retarget": f"#modalTerna{fila['partido'].id}",
+                        "HX-Reswap": "outerHTML",
+                    },
+                    trigger=toast("error", str(exc)),
+                )
+            return respuesta_o_fragmento(
+                request,
+                completa=PAGINA,
+                parcial=PARCIAL_LISTADO,
+                contexto=_contexto(db, error=str(exc), form=form),
+                status_code=400,
+                trigger=toast("error", str(exc)),
+            )
         return _render(request, db, error=str(exc), form=form, status_code=400)
+
+    if es_htmx(request):
+        return respuesta_o_fragmento(
+            request,
+            completa=PAGINA,
+            parcial=PARCIAL_LISTADO,
+            contexto=_contexto(db),
+            trigger=toast("success", "Terna guardada."),
+        )
 
     return RedirectResponse("/designaciones", status_code=303)

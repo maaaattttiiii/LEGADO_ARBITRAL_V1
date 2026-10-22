@@ -17,6 +17,7 @@ _PARCIAL_LISTADO = "partials/torneos/listado.html"
 _PARCIAL_ALTA = "partials/torneos/modal.html"
 _PARCIAL_EDITAR = "partials/torneos/modal_editar.html"
 _MODAL_ALTA = "modalTorneo"
+_NO_EXISTE = "No existe el torneo."
 
 
 def _contexto(
@@ -60,19 +61,37 @@ def _render(
     form: dict[str, str] | None = None,
     status_code: int = 200,
     abrir_alta: bool = False,
+    editar_error_id: int | None = None,
 ) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         _PAGINA,
-        _contexto(db, error=error, form=form, abrir_alta=abrir_alta),
+        _contexto(
+            db,
+            error=error,
+            form=form,
+            abrir_alta=abrir_alta,
+            editar_error_id=editar_error_id,
+        ),
         status_code=status_code,
     )
 
 
-def _obtener(db: Session, torneo_id: int) -> Torneo:
+def _obtener(
+    request: Request, db: Session, torneo_id: int
+) -> Torneo | HTMLResponse:
     torneo = db.get(Torneo, torneo_id)
     if torneo is None:
-        raise HTTPException(status_code=404, detail="No existe el torneo.")
+        if es_htmx(request):
+            return respuesta_o_fragmento(
+                request,
+                completa=_PAGINA,
+                parcial=_PARCIAL_LISTADO,
+                contexto=_contexto(db, error=_NO_EXISTE),
+                status_code=404,
+                trigger=toast("error", _NO_EXISTE),
+            )
+        raise HTTPException(status_code=404, detail=_NO_EXISTE)
     return torneo
 
 
@@ -156,7 +175,9 @@ def editar_torneo(
     fecha_inicio: str = Form(""),
     fecha_fin: str = Form(""),
 ):
-    torneo = _obtener(db, torneo_id)
+    torneo = _obtener(request, db, torneo_id)
+    if isinstance(torneo, HTMLResponse):
+        return torneo
     form = {
         "nombre": nombre,
         "categoria_torneo_id": categoria_torneo_id,
@@ -198,7 +219,14 @@ def editar_torneo(
                 },
                 trigger=toast("error", str(exc)),
             )
-        return _render(request, db, error=str(exc), status_code=400)
+        return _render(
+            request,
+            db,
+            error=str(exc),
+            form=form,
+            status_code=400,
+            editar_error_id=torneo.id,
+        )
 
     if es_htmx(request):
         return _fragmento_listado(
@@ -215,7 +243,9 @@ def estado_torneo(
     db: Session = Depends(get_db),
     activo: str = Form(""),
 ):
-    torneo = _obtener(db, torneo_id)
+    torneo = _obtener(request, db, torneo_id)
+    if isinstance(torneo, HTMLResponse):
+        return torneo
     cambiar_estado(db, torneo, activo=activo)
     db.commit()
     if es_htmx(request):

@@ -35,6 +35,7 @@ tests E2E de navegador y cambios de negocio.
 | 4 | CRUD con HTMX y regiones `#listado-<recurso>` | `test_htmx_crud.py` |
 | 5 | Tesorería: liquidar, cobrar, ajustar, cerrar y reabrir con swaps OOB | `test_htmx_tesoreria.py` |
 | 6 | Retiro de Bootstrap, preflight de Tailwind, accesibilidad y documentación | `test_accesibilidad_ui.py` |
+| 7 | Auditoría HTMX: designaciones, ediciones, errores visibles y swap de 4xx | `test_htmx_auditoria.py` |
 
 ## 3. Contrato de la entrega
 
@@ -60,7 +61,20 @@ tests E2E de navegador y cambios de negocio.
   `hx-target`, `hx-swap` y `hx-disabled-elt`.
 - Sin `HX-Request`: 303 tras éxito y 400 con página completa ante validación.
 - Con `HX-Request: true`: fragmento sin `<html>`/`<head>`/`<body>` o
-  `HX-Redirect`; se conservan 400/401/403/429 y `Retry-After`.
+  `HX-Redirect`; se conservan 400/401/403/404/429 y `Retry-After`.
+- El navegador intercambia esos cinco códigos (`htmx:beforeSwap`), por lo que
+  el formulario de login y el panel de acceso denegado se muestran sin recargar.
+- `GET /login` con sesión vigente y `HX-Request` responde `HX-Redirect` en
+  lugar de un `303` que HTMX no puede seguir.
+- Designaciones usa el mismo contrato que el resto del CRUD: región
+  `#listado-designaciones`, modal `#modalTerna<id>` y errores `400` con el
+  mensaje visible dentro del formulario.
+- Sin HTMX, el `400` de una edición de cancha o torneo reabre el modal del
+  registro con los valores enviados (`form` + `editar_error_id`).
+- Un `404` alcanzable por HTMX (liquidar partido, editar o dar de baja cancha
+  y torneo) conserva el `404` y devuelve el parcial del listado con
+  `cabm:toast` de error; sin `HX-Request` conserva el JSON con el mismo
+  `detail`.
 - La página completa y el fragmento reutilizan el mismo parcial.
 - Los eventos viajan en `HX-Trigger` y las redirecciones en `HX-Redirect`.
 
@@ -110,7 +124,7 @@ tests E2E de navegador y cambios de negocio.
 4. `docs/arquitectura.md` §6 y `CHANGES.md` describen el estado final.
 5. `openspec validate active-stack-frontend --strict` y
    `openspec validate --specs` pasan.
-6. La suite completa queda verde: **543 tests**.
+6. La suite completa queda verde: **665 tests**.
 
 ## 6. Deuda técnica
 
